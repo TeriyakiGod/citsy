@@ -21,6 +21,8 @@ option(CITSY_BUILD_RAYLIB_BACKEND   "Build the raylib reference player" OFF)
 add_library(citsy STATIC
     src/parser/parser.cpp
     src/engine/engine.cpp
+    src/dialog/linear.cpp
+    src/render/compose.cpp
 )
 
 target_include_directories(citsy
@@ -65,6 +67,8 @@ if(CITSY_BUILD_TESTS)
     add_executable(citsy_tests
         tests/unit/test_parser.cpp
         tests/unit/test_engine.cpp
+        tests/unit/test_dialog.cpp
+        tests/unit/test_simulation.cpp
     )
 
     target_link_libraries(citsy_tests

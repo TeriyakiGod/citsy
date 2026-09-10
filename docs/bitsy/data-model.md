@@ -330,12 +330,11 @@ ITM 0 4,4
 ITM 0 5,3 DLG DLG_special
 ```
 
-### Runtime behavior (planned)
+### Runtime behavior (Phase 1)
 
-- Avatar walks over an item to collect it (or presses Ok to interact, depending on dialog)
-- Collected items enter the player's inventory
-- Dialog scripts can give/take items via `{itemId}` actions
-- Once collected, the item is removed from the room
+- Avatar walks onto an item to pick it up and show its dialog
+- The item is removed from the room so it is no longer drawn
+- Inventory counts and `{item}` give/take scripts are Phase 2
 
 ---
 
@@ -474,15 +473,15 @@ Multiline content is stored with newline separators. The script may include:
 
 | Feature | Example syntax | Status in citsy |
 |---|---|---|
-| Text lines | `"Hello!"` | Parsed; interpretation Phase 2 |
-| Variable interpolation | `{print name}` | Planned |
-| Assignment | `{score = 5}` | Planned |
-| Conditionals | `{score}?` … `{/}` | Planned |
-| Item actions | `{itemId}` give/take | Planned |
-| Exit triggers | `{exitRoomId}` | Planned |
-| Endings | `{endingId}` | Planned |
+| Text lines | `"Hello!"` | Linear pages (Phase 1) |
+| Variable interpolation | `{print name}` | Planned (Phase 2) |
+| Assignment | `{score = 5}` | Planned (Phase 2) |
+| Conditionals | `{score}?` … `{/}` | Planned (Phase 2) |
+| Item actions | `{itemId}` give/take | Planned (Phase 2) |
+| Exit triggers | `{exitRoomId}` | Planned (Phase 2) |
+| Endings | `{endingId}` | Planned (Phase 2) |
 
-citsy currently stores dialog content as raw text. The dialog interpreter (`src/dialog/`, Phase 2) will evaluate scripts at runtime.
+citsy stores dialog content as raw text. Phase 1 plays quoted strings (and `{p}` / `{br}`) as sequential pages. The full script interpreter (`src/dialog/`, Phase 2) will evaluate remaining tags at runtime.
 
 ---
 
@@ -689,8 +688,8 @@ See `tests/data/minimal.bitsy` for a complete game using every entity type. Afte
 | Extended palettes (`COL n`) | Yes | Phase 1 |
 | Wall tiles (`WAL true`) | Yes | Phase 1 |
 | Variables | Yes (stored) | Phase 2 |
-| Dialog scripts | Yes (raw text) | Phase 2 |
-| Exit transitions | Yes (stored) | Phase 3 |
+| Dialog scripts | Yes (raw text) | Linear text Phase 1; scripting Phase 2 |
+| Exit transitions | Yes (stored) | Instant warp Phase 1; effects Phase 3 |
 | Custom fonts (`FONT`) | Skipped | Phase 3 |
 | Sound | Not in file format | Phase 3 (engine-generated) |
 
