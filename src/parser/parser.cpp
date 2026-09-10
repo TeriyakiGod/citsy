@@ -230,6 +230,36 @@ private:
         return body;
     }
 
+    // Count `"""` tokens in a line (used to keep blank lines inside triple quotes).
+    static int count_triple_quotes(std::string_view s) {
+        int n = 0;
+        for (std::size_t i = 0; i + 2 < s.size();) {
+            if (s[i] == '"' && s[i + 1] == '"' && s[i + 2] == '"') {
+                ++n;
+                i += 3;
+            } else {
+                ++i;
+            }
+        }
+        return n;
+    }
+
+    // DLG / END bodies may contain triple-quoted blocks with blank lines
+    // (page breaks). Keep reading while a `"""` pair is still open; once
+    // closed, stop at the next blank line so NAME and the next segment work.
+    std::vector<std::string> read_dialog_body() {
+        std::vector<std::string> body;
+        bool in_triple = false;
+        while (pos_ < lines_.size()) {
+            const std::string& raw = lines_[pos_];
+            if (!in_triple && trim(raw).empty()) break;
+            if (count_triple_quotes(raw) % 2 != 0) in_triple = !in_triple;
+            body.push_back(raw);
+            ++pos_;
+        }
+        return body;
+    }
+
     // Skip the current segment header + body.
     void skip_segment() {
         ++pos_;  // skip header
@@ -590,7 +620,7 @@ private:
     // -----------------------------------------------------------------------
     void parse_dialogue(std::string id, Game& game) {
         ++pos_;
-        std::vector<std::string> body = read_body();
+        std::vector<std::string> body = read_dialog_body();
 
         Dialogue dlg;
         dlg.id = id;
@@ -624,7 +654,7 @@ private:
     // -----------------------------------------------------------------------
     void parse_ending(std::string id, Game& game) {
         ++pos_;
-        std::vector<std::string> body = read_body();
+        std::vector<std::string> body = read_dialog_body();
 
         Ending ending;
         ending.id = id;

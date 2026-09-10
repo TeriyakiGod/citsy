@@ -99,11 +99,17 @@ public:
     [[nodiscard]] int avatar_x() const noexcept;
     [[nodiscard]] int avatar_y() const noexcept;
 
-    /// True while a linear dialog box is open.
+    /// True while a dialog box is open.
     [[nodiscard]] bool dialog_active() const noexcept;
 
     /// Text of the current dialog page, or empty if no dialog is open.
     [[nodiscard]] std::string_view dialog_line() const noexcept;
+
+    /// Inventory count for an item id or NAME (0 if unknown).
+    [[nodiscard]] int item_count(std::string_view id_or_name) const;
+
+    /// Current value of a dialog variable as text (empty if unset).
+    [[nodiscard]] std::string variable_value(std::string_view name) const;
 
 private:
     struct Impl;
