@@ -89,6 +89,22 @@ public:
     /// True while the game is running (not yet ended or stopped).
     [[nodiscard]] bool is_running() const noexcept;
 
+    // -----------------------------------------------------------------------
+    // Runtime inspection (useful for tests and hosts without a font yet)
+    // -----------------------------------------------------------------------
+
+    /// Id of the room the avatar is currently in.
+    [[nodiscard]] std::string current_room_id() const;
+
+    [[nodiscard]] int avatar_x() const noexcept;
+    [[nodiscard]] int avatar_y() const noexcept;
+
+    /// True while a linear dialog box is open.
+    [[nodiscard]] bool dialog_active() const noexcept;
+
+    /// Text of the current dialog page, or empty if no dialog is open.
+    [[nodiscard]] std::string_view dialog_line() const noexcept;
+
 private:
     struct Impl;
     std::unique_ptr<Impl> impl_;

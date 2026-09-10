@@ -23,7 +23,7 @@ citsy is a headless C++ reimplementation of the [Bitsy](https://bitsy.org) game 
                            ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                      citsy core (library)                   │
-│  Engine · Parser · Game model · (future: dialog, render…)   │
+│  Engine · Parser · Game model · Dialog · Render             │
 │  - simulation step          - memory blocks (video/map/text)│
 │  - script execution         - palette & tile cache          │
 └──────────────────────────┬──────────────────────────────────┘
@@ -62,9 +62,9 @@ citsy/
 ├── src/
 │   ├── parser/             # .bitsy lexer / parser  →  Game
 │   ├── model/              # Game, Room, Tile, Sprite, Item, …
-│   ├── engine/             # Simulation loop, buffer ownership
-│   ├── dialog/             # (planned) Script interpreter
-│   ├── render/             # (planned) Logical compositor
+│   ├── engine/             # Simulation loop, movement, collision, exits
+│   ├── dialog/             # Linear dialog pages (scripting in Phase 2)
+│   ├── render/             # Logical compositor → map1 / map2 / video
 │   ├── font/               # (planned) .bitsyfont rendering
 │   ├── sound/              # (planned) Channel parameter generation
 │   └── transition/         # (planned) Fade/wipe effects
@@ -84,7 +84,7 @@ citsy/
 | Location | Visibility | Purpose |
 |---|---|---|
 | `include/citsy/` | Public | Stable consumer-facing headers |
-| `src/model/`, `src/parser/` | Internal | Parsed game data and parser; tests may include directly for white-box checks |
+| `src/model/`, `src/parser/`, `src/dialog/`, `src/render/` | Internal | Game data, parser, linear dialog, compositor; tests may include directly |
 | `backends/mock/` | Backend | Test double; not linked into the core library |
 
 Embedders depend only on `include/citsy/`. Internal headers use paths like `"src/model/game.hpp"` and are not installed as part of the public ABI.
@@ -110,7 +110,7 @@ Strongly typed C++ structures mirroring Bitsy entities:
 | `Sprite` | `SPR` | Animated character; avatar is always id `A` |
 | `Item` | `ITM` | Collectible object |
 | `Room` | `ROOM` | 16×16 tile grid, items, exits, endings, palette |
-| `Dialogue` | `DLG` | Script text (interpretation planned) |
+| `Dialogue` | `DLG` | Script text; Phase 1 plays quoted lines linearly |
 | `Variable` | `VAR` | Global number or string state |
 | `Ending` | `END` | End-game message |
 
@@ -121,7 +121,7 @@ Strongly typed C++ structures mirroring Bitsy entities:
 The `Engine` class owns:
 
 1. A parsed `Game` (via pimpl)
-2. Runtime state (`running` flag, current room, etc. — expanded in later phases)
+2. Runtime state (current room, avatar position, open dialog, remaining room items)
 3. Memory blocks the host reads each frame
 
 **Lifecycle:**
@@ -136,14 +136,26 @@ while (engine.is_running()) {
 }
 ```
 
-**Phase 0 behavior:** `update()` presents empty buffers with the parsed palette. Movement, collision, room rendering, and dialog are planned for Phase 1+.
+**Phase 1 behavior:** `update()` reads directional input, moves the avatar with wall and sprite collision, follows room exits, runs linear dialog, and composes `map1` / `map2` / `video` for the current room.
+
+### Dialog (`src/dialog/`)
+
+Phase 1 extracts linear text pages from `DLG` source (`extract_dialog_pages`). Quoted strings are pages; `{p}` starts a new page and `{br}` is a newline. Variable assignment, conditionals, and item/exit actions are Phase 2.
+
+### Render (`src/render/`)
+
+`compose_room()` fills:
+
+- `map1` — background tile codes for the current room
+- `map2` — items, non-avatar sprites, then the avatar
+- `video` — 128×128 colour indices (tiles opaque, sprites/items transparent)
+
+The host still receives `GraphicsMode::Map` during gameplay. The composed video buffer is available so backends can blit pixels without a tile cache (the cache itself is Phase 3+).
 
 ### Planned modules
 
 | Module | Role |
 |---|---|
-| `dialog/` | Evaluate Bitsy dialog scripts: variables, conditionals, actions |
-| `render/` | Compose room tiles, sprites, and items into `map1`/`map2` or `video` |
 | `font/` | Render `.bitsyfont` glyphs into the textbox buffer |
 | `sound/` | Generate two-channel square-wave parameters |
 | `transition/` | Room transition effects in video mode |

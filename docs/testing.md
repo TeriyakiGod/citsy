@@ -59,19 +59,24 @@ ctest --test-dir build -j$(nproc)
 tests/
 ├── unit/
 │   ├── test_parser.cpp     # Parser and Game model tests
-│   └── test_engine.cpp     # Engine lifecycle and MockHost integration
+│   ├── test_engine.cpp     # Engine lifecycle and MockHost integration
+│   ├── test_dialog.cpp     # Linear dialog page extraction
+│   └── test_simulation.cpp # Movement, collision, render, exits, dialog
 └── data/
     ├── minimal.bitsy       # Full game with all entity types
     ├── animated.bitsy      # Multi-frame tile animation
-    └── two_rooms.bitsy     # Two rooms with exits and palettes
+    ├── two_rooms.bitsy     # Two rooms with exits and palettes
+    └── playable.bitsy      # Walls, NPC dialog, item, room exit
 ```
 
 | File | Tags | What it covers |
 |---|---|---|
 | `test_parser.cpp` | `[parser]`, `[palette]`, `[tile]`, `[sprite]`, `[item]`, `[room]`, `[dialogue]`, `[variable]`, `[ending]`, `[model]`, `[errors]`, `[fixture]` | `.bitsy` parsing, entity fields, error handling, fixture files |
 | `test_engine.cpp` | `[engine]`, `[mock]` | Engine construction, lifecycle, buffer sizes, palette output, MockHost behavior |
+| `test_dialog.cpp` | `[dialog]` | Linear page extraction from DLG source |
+| `test_simulation.cpp` | `[engine]`, `[sim]`, `[render]`, `[dialog]`, `[fixture]` | Movement, walls, map/video compose, sprite/item drawing, exits, linear dialog |
 
-As of Phase 0, the suite contains **50 tests**, all passing.
+As of Phase 1, the suite contains **84 tests**, all passing.
 
 ---
 
@@ -191,6 +196,8 @@ CHECK_THROWS_AS(citsy::Engine(bad_src), citsy::ParseError);
 add_executable(citsy_tests
     tests/unit/test_parser.cpp
     tests/unit/test_engine.cpp
+    tests/unit/test_dialog.cpp
+    tests/unit/test_simulation.cpp
     tests/unit/test_myfeature.cpp   # add here
 )
 ```
@@ -208,6 +215,9 @@ Tests use tags for filtering. Current tags:
 | `[parser]` | All parser tests |
 | `[engine]` | Engine lifecycle and output |
 | `[mock]` | MockHost-specific tests |
+| `[dialog]` | Linear dialog extraction and playback |
+| `[sim]` | Movement, collision, exits, room state |
+| `[render]` | map1 / map2 / video composition |
 | `[fixture]` | Tests loading `tests/data/*.bitsy` |
 | `[errors]` | Parse error handling |
 | Sub-tags like `[palette]`, `[tile]`, `[room]` | Entity-specific parser tests |

@@ -234,7 +234,7 @@ Planned modules inside the core library:
 | `parser/` | Load and serialize `.bitsy` text; validate segments |
 | `model/` | `Game`, `Room`, `Tile`, `Sprite`, `Item`, `Dialogue`, `Variable`, … |
 | `engine/` | Main loop, avatar movement, collision, room transitions |
-| `dialog/` | Dialog list evaluation, branching, `{variable}` scripting |
+| `dialog/` | Linear dialog pages; full `{variable}` scripting in Phase 2 |
 | `render/` | Logical renderer — fills video/map/textbox memory blocks (no GPU) |
 | `font/` | Built-in and custom `.bitsyfont` glyph rendering into textbox buffer |
 | `sound/` | Two-channel square-wave parameter generation |
@@ -419,12 +419,12 @@ Development is staged toward practical compatibility with games made in current 
   - [x] `Host` interface and `MockHost`
   - [x] Unit tests against sample game files
 
-- [ ] **Phase 1 — Playable core**
-  - [ ] Avatar movement and wall collision
-  - [ ] Room rendering into map buffers
-  - [ ] Sprite and item drawing
-  - [ ] Exit transitions between rooms
-  - [ ] Basic dialog (linear text)
+- [x] **Phase 1 — Playable core**
+  - [x] Avatar movement and wall collision
+  - [x] Room rendering into map buffers
+  - [x] Sprite and item drawing
+  - [x] Exit transitions between rooms
+  - [x] Basic dialog (linear text)
 
 - [ ] **Phase 2 — Scripting & state**
   - [ ] Variables (numbers and strings)

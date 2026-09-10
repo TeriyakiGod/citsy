@@ -604,6 +604,21 @@ TEST_CASE("fixture: two_rooms.bitsy has two rooms and exits", "[fixture]") {
     CHECK(game.rooms.at("1").palette_id == "1");
 }
 
+TEST_CASE("fixture: playable.bitsy has npc, item, and two rooms", "[fixture]") {
+    auto text = load_fixture("playable.bitsy");
+    auto game = citsy::parse(text);
+    CHECK(game.rooms.size() == 2);
+    REQUIRE(game.sprites.count("A") == 1);
+    REQUIRE(game.sprites.count("0") == 1);
+    CHECK(game.sprites.at("A").position->x == 2);
+    CHECK(game.sprites.at("A").position->y == 8);
+    CHECK(game.sprites.at("0").dialog_id == "DLG_NPC");
+    REQUIRE(game.rooms.at("0").items.size() == 1);
+    CHECK(game.rooms.at("0").items[0].item_id == "0");
+    CHECK(game.dialogues.count("DLG_NPC") == 1);
+    CHECK(game.dialogues.count("DLG_KEY") == 1);
+}
+
 // ---------------------------------------------------------------------------
 // Real-world fixture: mossland by candle (Bitsy v6.4)
 // https://adamledoux.itch.io/mossland

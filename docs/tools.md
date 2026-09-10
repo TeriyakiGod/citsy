@@ -120,6 +120,8 @@ Source files (current):
 
 - `src/parser/parser.cpp`
 - `src/engine/engine.cpp`
+- `src/dialog/linear.cpp`
+- `src/render/compose.cpp`
 
 Public headers: `include/citsy/`
 
