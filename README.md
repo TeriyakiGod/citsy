@@ -13,6 +13,7 @@ citsy is **engine only**. It does not link against raylib, 32blit, or any other 
 - [Why citsy?](#why-citsy)
 - [Design goals](#design-goals)
 - [Non-goals](#non-goals)
+- [Documentation](#documentation)
 - [Architecture](#architecture)
 - [Host System API](#host-system-api)
 - [Engine internals](#engine-internals)
@@ -58,6 +59,21 @@ This makes the engine embeddable in game jams, retro handhelds, test harnesses, 
 - **HTML export** — citsy produces frames and state, not a self-contained web page.
 - **JavaScript embedding** — the reference engine runs on JS; citsy reimplements engine logic in native C++.
 - **Full feature parity on day one** — compatibility is incremental; see [Roadmap](#roadmap).
+
+---
+
+## Documentation
+
+Detailed guides live in [`docs/`](docs/README.md):
+
+| Guide | Contents |
+|---|---|
+| [Architecture](docs/architecture.md) | Layering, modules, data flow, memory blocks, Host interface |
+| [Tools & build](docs/tools.md) | CMake options, compilers, dependencies, build targets |
+| [Testing](docs/testing.md) | Running tests, writing tests, fixtures, MockHost |
+| [Bitsy data model](docs/bitsy/data-model.md) | Entity types, properties, file syntax, relationships |
+
+For agent-oriented conventions, see [AGENTS.md](AGENTS.md).
 
 ---
 
@@ -246,9 +262,9 @@ Scripts are parsed from `DLG` segments in game data. citsy implements the same e
 
 ## Bitsy data model
 
-A Bitsy game is a collection of typed segments in a plain-text `.bitsy` file.
+A Bitsy game is a collection of typed segments in a plain-text `.bitsy` file. See **[docs/bitsy/data-model.md](docs/bitsy/data-model.md)** for the full reference: every entity type, property, file syntax example, relationship diagram, and C++ struct mapping.
 
-### Core entities
+Quick summary of core entities:
 
 | Entity | Description |
 |---|---|
@@ -258,35 +274,9 @@ A Bitsy game is a collection of typed segments in a plain-text `.bitsy` file.
 | **Item (`ITM`)** | Collectible 8×8 object with inventory semantics |
 | **Room (`ROOM`)** | 16×16 grid of tile IDs, plus placed items, exits, and endings |
 | **Exit (`EXT`)** | Warp tile: target room, position, optional dialog, transition effect |
-| **Ending (`END`)** | Triggers game completion when avatar steps on tile |
 | **Dialogue (`DLG`)** | Script attached to sprites, items, or exits |
 | **Variable (`VAR`)** | Global number or string state |
-| **Ending text (`END`)** | End-game message segment |
-
-### Room layout
-
-Each room stores:
-
-```
-ROOM <id>
-<16 lines of 16 tile IDs, comma-separated in modern format>
-NAME optional room name
-WAL <tile_id>, ...          # legacy wall list (older games)
-ITM <item_id> <x>,<y> [DLG <dialog_id>]
-EXT <x>,<y> <target_room> <tx>,<ty> [transition] [DLG <dialog_id>]
-END <ending_id> <x>,<y>
-PAL <palette_id>
-```
-
-Coordinates use `x,y` with origin at the top-left of the room grid.
-
-### Palettes
-
-Default Bitsy palettes contain three colors (indices 0–2): background, tile, sprite. Games can declare additional RGB lines and assign `COL n` on drawings for multi-color art.
-
-### Animation
-
-Tiles, sprites, and items support multiple frames. In file data, frames are separated by `>` on its own line. Each frame is eight rows of eight binary digits (`0` = background color, `1` = drawing color).
+| **Ending (`END`)** | End-game message (top-level) or tile trigger (room sub-key) |
 
 ---
 
@@ -347,7 +337,7 @@ The `citsy` CMake target is a static or shared library with **no** link dependen
 
 ## Building
 
-Requirements (planned):
+Requirements:
 
 - CMake 3.20+
 - A C++20-capable compiler (GCC 11+, Clang 14+, MSVC 19.29+)
@@ -357,6 +347,8 @@ cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ctest --test-dir build
 ```
+
+See [docs/tools.md](docs/tools.md) for CMake options, build targets, and dependency details. See [docs/testing.md](docs/testing.md) for test filtering, fixtures, and writing new tests.
 
 To build with the raylib reference backend (optional):
 

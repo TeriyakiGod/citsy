@@ -2,7 +2,7 @@
 
 Headless C++ reimplementation of the [Bitsy](https://bitsy.org) game engine. Inspired by [adamledoux/bitsy](https://codeberg.org/adamledoux/bitsy); not affiliated with the official project.
 
-Read `README.md` for full design docs. This file tells agents **how to work on the codebase**.
+Read `README.md` for full design docs and `docs/` for detailed guides on [architecture](docs/architecture.md), [tools & build](docs/tools.md), and [testing](docs/testing.md). This file tells agents **how to work on the codebase**.
 
 ---
 
@@ -168,7 +168,7 @@ cmake -B build -DCITSY_BUILD_RAYLIB_BACKEND=ON
 cmake --build build
 ```
 
-Requirements: CMake 3.20+, C++20 compiler (GCC 11+, Clang 14+, MSVC 19.29+).
+Requirements: CMake 3.20+, C++20 compiler (GCC 11+, Clang 14+, MSVC 19.29+). See `docs/tools.md` for CMake options and `docs/testing.md` for test commands and MockHost usage.
 
 ---
 
