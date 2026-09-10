@@ -1,0 +1,1003 @@
+Start testing: Sep 10 22:38 CEST
+----------------------------------------------------------
+1/50 Testing: parser: version header
+1/50 Test: parser: version header
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "parser: version header"
+Directory: /home/teriyakigod/source/citsy/build
+"parser: version header" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "parser: version header"
+Randomness seeded to: 862667713
+===============================================================================
+All tests passed (2 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"parser: version header" end time: Sep 10 22:38 CEST
+"parser: version header" time elapsed: 00:00:00
+----------------------------------------------------------
+
+2/50 Testing: parser: game title from NAME directive
+2/50 Test: parser: game title from NAME directive
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "parser: game title from NAME directive"
+Directory: /home/teriyakigod/source/citsy/build
+"parser: game title from NAME directive" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "parser: game title from NAME directive"
+Randomness seeded to: 1894865849
+===============================================================================
+All tests passed (1 assertion in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"parser: game title from NAME directive" end time: Sep 10 22:38 CEST
+"parser: game title from NAME directive" time elapsed: 00:00:00
+----------------------------------------------------------
+
+3/50 Testing: parser: room_format directive
+3/50 Test: parser: room_format directive
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "parser: room_format directive"
+Directory: /home/teriyakigod/source/citsy/build
+"parser: room_format directive" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "parser: room_format directive"
+Randomness seeded to: 2772343799
+===============================================================================
+All tests passed (1 assertion in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"parser: room_format directive" end time: Sep 10 22:38 CEST
+"parser: room_format directive" time elapsed: 00:00:00
+----------------------------------------------------------
+
+4/50 Testing: parser: palette three colors
+4/50 Test: parser: palette three colors
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "parser: palette three colors"
+Directory: /home/teriyakigod/source/citsy/build
+"parser: palette three colors" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "parser: palette three colors"
+Randomness seeded to: 3614419786
+===============================================================================
+All tests passed (13 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"parser: palette three colors" end time: Sep 10 22:38 CEST
+"parser: palette three colors" time elapsed: 00:00:00
+----------------------------------------------------------
+
+5/50 Testing: parser: multiple palettes
+5/50 Test: parser: multiple palettes
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "parser: multiple palettes"
+Directory: /home/teriyakigod/source/citsy/build
+"parser: multiple palettes" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "parser: multiple palettes"
+Randomness seeded to: 2702970223
+===============================================================================
+All tests passed (4 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"parser: multiple palettes" end time: Sep 10 22:38 CEST
+"parser: multiple palettes" time elapsed: 00:00:00
+----------------------------------------------------------
+
+6/50 Testing: parser: simple tile
+6/50 Test: parser: simple tile
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "parser: simple tile"
+Directory: /home/teriyakigod/source/citsy/build
+"parser: simple tile" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "parser: simple tile"
+Randomness seeded to: 2835083136
+===============================================================================
+All tests passed (22 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"parser: simple tile" end time: Sep 10 22:38 CEST
+"parser: simple tile" time elapsed: 00:00:00
+----------------------------------------------------------
+
+7/50 Testing: parser: non-wall tile
+7/50 Test: parser: non-wall tile
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "parser: non-wall tile"
+Directory: /home/teriyakigod/source/citsy/build
+"parser: non-wall tile" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "parser: non-wall tile"
+Randomness seeded to: 1927591685
+===============================================================================
+All tests passed (2 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"parser: non-wall tile" end time: Sep 10 22:38 CEST
+"parser: non-wall tile" time elapsed: 00:00:00
+----------------------------------------------------------
+
+8/50 Testing: parser: animated tile with two frames
+8/50 Test: parser: animated tile with two frames
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "parser: animated tile with two frames"
+Directory: /home/teriyakigod/source/citsy/build
+"parser: animated tile with two frames" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "parser: animated tile with two frames"
+Randomness seeded to: 898377820
+===============================================================================
+All tests passed (75 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"parser: animated tile with two frames" end time: Sep 10 22:38 CEST
+"parser: animated tile with two frames" time elapsed: 00:00:00
+----------------------------------------------------------
+
+9/50 Testing: parser: tile color index COL
+9/50 Test: parser: tile color index COL
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "parser: tile color index COL"
+Directory: /home/teriyakigod/source/citsy/build
+"parser: tile color index COL" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "parser: tile color index COL"
+Randomness seeded to: 2293572835
+===============================================================================
+All tests passed (2 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"parser: tile color index COL" end time: Sep 10 22:38 CEST
+"parser: tile color index COL" time elapsed: 00:00:00
+----------------------------------------------------------
+
+10/50 Testing: parser: avatar sprite position
+10/50 Test: parser: avatar sprite position
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "parser: avatar sprite position"
+Directory: /home/teriyakigod/source/citsy/build
+"parser: avatar sprite position" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "parser: avatar sprite position"
+Randomness seeded to: 50453686
+===============================================================================
+All tests passed (7 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"parser: avatar sprite position" end time: Sep 10 22:38 CEST
+"parser: avatar sprite position" time elapsed: 00:00:00
+----------------------------------------------------------
+
+11/50 Testing: parser: non-avatar sprite with dialog
+11/50 Test: parser: non-avatar sprite with dialog
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "parser: non-avatar sprite with dialog"
+Directory: /home/teriyakigod/source/citsy/build
+"parser: non-avatar sprite with dialog" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "parser: non-avatar sprite with dialog"
+Randomness seeded to: 3444592310
+===============================================================================
+All tests passed (5 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"parser: non-avatar sprite with dialog" end time: Sep 10 22:38 CEST
+"parser: non-avatar sprite with dialog" time elapsed: 00:00:00
+----------------------------------------------------------
+
+12/50 Testing: parser: item with dialog
+12/50 Test: parser: item with dialog
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "parser: item with dialog"
+Directory: /home/teriyakigod/source/citsy/build
+"parser: item with dialog" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "parser: item with dialog"
+Randomness seeded to: 865050926
+===============================================================================
+All tests passed (4 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"parser: item with dialog" end time: Sep 10 22:38 CEST
+"parser: item with dialog" time elapsed: 00:00:00
+----------------------------------------------------------
+
+13/50 Testing: parser: room tile grid (comma-separated)
+13/50 Test: parser: room tile grid (comma-separated)
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "parser: room tile grid (comma-separated)"
+Directory: /home/teriyakigod/source/citsy/build
+"parser: room tile grid (comma-separated)" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "parser: room tile grid (comma-separated)"
+Randomness seeded to: 235880202
+===============================================================================
+All tests passed (7 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"parser: room tile grid (comma-separated)" end time: Sep 10 22:38 CEST
+"parser: room tile grid (comma-separated)" time elapsed: 00:00:00
+----------------------------------------------------------
+
+14/50 Testing: parser: room items
+14/50 Test: parser: room items
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "parser: room items"
+Directory: /home/teriyakigod/source/citsy/build
+"parser: room items" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "parser: room items"
+Randomness seeded to: 1124517172
+===============================================================================
+All tests passed (5 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"parser: room items" end time: Sep 10 22:38 CEST
+"parser: room items" time elapsed: 00:00:00
+----------------------------------------------------------
+
+15/50 Testing: parser: room exits
+15/50 Test: parser: room exits
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "parser: room exits"
+Directory: /home/teriyakigod/source/citsy/build
+"parser: room exits" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "parser: room exits"
+Randomness seeded to: 2512666541
+===============================================================================
+All tests passed (7 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"parser: room exits" end time: Sep 10 22:38 CEST
+"parser: room exits" time elapsed: 00:00:00
+----------------------------------------------------------
+
+16/50 Testing: parser: room ending references
+16/50 Test: parser: room ending references
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "parser: room ending references"
+Directory: /home/teriyakigod/source/citsy/build
+"parser: room ending references" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "parser: room ending references"
+Randomness seeded to: 2603517246
+===============================================================================
+All tests passed (4 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"parser: room ending references" end time: Sep 10 22:38 CEST
+"parser: room ending references" time elapsed: 00:00:00
+----------------------------------------------------------
+
+17/50 Testing: parser: dialogue content
+17/50 Test: parser: dialogue content
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "parser: dialogue content"
+Directory: /home/teriyakigod/source/citsy/build
+"parser: dialogue content" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "parser: dialogue content"
+Randomness seeded to: 1933886563
+===============================================================================
+All tests passed (2 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"parser: dialogue content" end time: Sep 10 22:38 CEST
+"parser: dialogue content" time elapsed: 00:00:00
+----------------------------------------------------------
+
+18/50 Testing: parser: multiline dialogue
+18/50 Test: parser: multiline dialogue
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "parser: multiline dialogue"
+Directory: /home/teriyakigod/source/citsy/build
+"parser: multiline dialogue" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "parser: multiline dialogue"
+Randomness seeded to: 1948848372
+===============================================================================
+All tests passed (3 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"parser: multiline dialogue" end time: Sep 10 22:38 CEST
+"parser: multiline dialogue" time elapsed: 00:00:00
+----------------------------------------------------------
+
+19/50 Testing: parser: numeric variable
+19/50 Test: parser: numeric variable
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "parser: numeric variable"
+Directory: /home/teriyakigod/source/citsy/build
+"parser: numeric variable" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "parser: numeric variable"
+Randomness seeded to: 117390855
+===============================================================================
+All tests passed (2 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"parser: numeric variable" end time: Sep 10 22:38 CEST
+"parser: numeric variable" time elapsed: 00:00:00
+----------------------------------------------------------
+
+20/50 Testing: parser: string variable
+20/50 Test: parser: string variable
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "parser: string variable"
+Directory: /home/teriyakigod/source/citsy/build
+"parser: string variable" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "parser: string variable"
+Randomness seeded to: 467941550
+===============================================================================
+All tests passed (2 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"parser: string variable" end time: Sep 10 22:38 CEST
+"parser: string variable" time elapsed: 00:00:00
+----------------------------------------------------------
+
+21/50 Testing: parser: ending text and name
+21/50 Test: parser: ending text and name
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "parser: ending text and name"
+Directory: /home/teriyakigod/source/citsy/build
+"parser: ending text and name" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "parser: ending text and name"
+Randomness seeded to: 1205054797
+===============================================================================
+All tests passed (3 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"parser: ending text and name" end time: Sep 10 22:38 CEST
+"parser: ending text and name" time elapsed: 00:00:00
+----------------------------------------------------------
+
+22/50 Testing: game: avatar() returns sprite A
+22/50 Test: game: avatar() returns sprite A
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "game: avatar() returns sprite A"
+Directory: /home/teriyakigod/source/citsy/build
+"game: avatar() returns sprite A" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "game: avatar() returns sprite A"
+Randomness seeded to: 3917009444
+===============================================================================
+All tests passed (2 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"game: avatar() returns sprite A" end time: Sep 10 22:38 CEST
+"game: avatar() returns sprite A" time elapsed: 00:00:00
+----------------------------------------------------------
+
+23/50 Testing: game: start_room_id from avatar POS
+23/50 Test: game: start_room_id from avatar POS
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "game: start_room_id from avatar POS"
+Directory: /home/teriyakigod/source/citsy/build
+"game: start_room_id from avatar POS" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "game: start_room_id from avatar POS"
+Randomness seeded to: 876451341
+===============================================================================
+All tests passed (1 assertion in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"game: start_room_id from avatar POS" end time: Sep 10 22:38 CEST
+"game: start_room_id from avatar POS" time elapsed: 00:00:00
+----------------------------------------------------------
+
+24/50 Testing: parser: bad tile row length throws
+24/50 Test: parser: bad tile row length throws
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "parser: bad tile row length throws"
+Directory: /home/teriyakigod/source/citsy/build
+"parser: bad tile row length throws" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "parser: bad tile row length throws"
+Randomness seeded to: 1586765658
+===============================================================================
+All tests passed (1 assertion in 1 test case)
+
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"parser: bad tile row length throws" end time: Sep 10 22:38 CEST
+"parser: bad tile row length throws" time elapsed: 00:00:00
+----------------------------------------------------------
+
+25/50 Testing: parser: incomplete tile frame throws
+25/50 Test: parser: incomplete tile frame throws
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "parser: incomplete tile frame throws"
+Directory: /home/teriyakigod/source/citsy/build
+"parser: incomplete tile frame throws" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "parser: incomplete tile frame throws"
+Randomness seeded to: 485610031
+===============================================================================
+All tests passed (1 assertion in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"parser: incomplete tile frame throws" end time: Sep 10 22:38 CEST
+"parser: incomplete tile frame throws" time elapsed: 00:00:00
+----------------------------------------------------------
+
+26/50 Testing: parser: bad palette color throws
+26/50 Test: parser: bad palette color throws
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "parser: bad palette color throws"
+Directory: /home/teriyakigod/source/citsy/build
+"parser: bad palette color throws" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "parser: bad palette color throws"
+Randomness seeded to: 3607812751
+===============================================================================
+All tests passed (1 assertion in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"parser: bad palette color throws" end time: Sep 10 22:38 CEST
+"parser: bad palette color throws" time elapsed: 00:00:00
+----------------------------------------------------------
+
+27/50 Testing: fixture: minimal.bitsy parses cleanly
+27/50 Test: fixture: minimal.bitsy parses cleanly
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "fixture: minimal.bitsy parses cleanly"
+Directory: /home/teriyakigod/source/citsy/build
+"fixture: minimal.bitsy parses cleanly" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "fixture: minimal.bitsy parses cleanly"
+Randomness seeded to: 3209633885
+===============================================================================
+All tests passed (13 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"fixture: minimal.bitsy parses cleanly" end time: Sep 10 22:38 CEST
+"fixture: minimal.bitsy parses cleanly" time elapsed: 00:00:00
+----------------------------------------------------------
+
+28/50 Testing: fixture: animated.bitsy parses two tile frames
+28/50 Test: fixture: animated.bitsy parses two tile frames
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "fixture: animated.bitsy parses two tile frames"
+Directory: /home/teriyakigod/source/citsy/build
+"fixture: animated.bitsy parses two tile frames" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "fixture: animated.bitsy parses two tile frames"
+Randomness seeded to: 930839837
+===============================================================================
+All tests passed (3 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"fixture: animated.bitsy parses two tile frames" end time: Sep 10 22:38 CEST
+"fixture: animated.bitsy parses two tile frames" time elapsed: 00:00:00
+----------------------------------------------------------
+
+29/50 Testing: fixture: two_rooms.bitsy has two rooms and exits
+29/50 Test: fixture: two_rooms.bitsy has two rooms and exits
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "fixture: two_rooms.bitsy has two rooms and exits"
+Directory: /home/teriyakigod/source/citsy/build
+"fixture: two_rooms.bitsy has two rooms and exits" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "fixture: two_rooms.bitsy has two rooms and exits"
+Randomness seeded to: 1940859200
+===============================================================================
+All tests passed (11 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"fixture: two_rooms.bitsy has two rooms and exits" end time: Sep 10 22:38 CEST
+"fixture: two_rooms.bitsy has two rooms and exits" time elapsed: 00:00:00
+----------------------------------------------------------
+
+30/50 Testing: engine: construct from string
+30/50 Test: engine: construct from string
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "engine: construct from string"
+Directory: /home/teriyakigod/source/citsy/build
+"engine: construct from string" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "engine: construct from string"
+Randomness seeded to: 739287902
+===============================================================================
+All tests passed (1 assertion in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"engine: construct from string" end time: Sep 10 22:38 CEST
+"engine: construct from string" time elapsed: 00:00:00
+----------------------------------------------------------
+
+31/50 Testing: engine: malformed palette throws ParseError
+31/50 Test: engine: malformed palette throws ParseError
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "engine: malformed palette throws ParseError"
+Directory: /home/teriyakigod/source/citsy/build
+"engine: malformed palette throws ParseError" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "engine: malformed palette throws ParseError"
+Randomness seeded to: 4120209262
+===============================================================================
+All tests passed (1 assertion in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"engine: malformed palette throws ParseError" end time: Sep 10 22:38 CEST
+"engine: malformed palette throws ParseError" time elapsed: 00:00:00
+----------------------------------------------------------
+
+32/50 Testing: engine: tile with no pixel data throws ParseError
+32/50 Test: engine: tile with no pixel data throws ParseError
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "engine: tile with no pixel data throws ParseError"
+Directory: /home/teriyakigod/source/citsy/build
+"engine: tile with no pixel data throws ParseError" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "engine: tile with no pixel data throws ParseError"
+Randomness seeded to: 1498614473
+===============================================================================
+All tests passed (1 assertion in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"engine: tile with no pixel data throws ParseError" end time: Sep 10 22:38 CEST
+"engine: tile with no pixel data throws ParseError" time elapsed: 00:00:00
+----------------------------------------------------------
+
+33/50 Testing: engine: tile row wrong length throws ParseError
+33/50 Test: engine: tile row wrong length throws ParseError
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "engine: tile row wrong length throws ParseError"
+Directory: /home/teriyakigod/source/citsy/build
+"engine: tile row wrong length throws ParseError" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "engine: tile row wrong length throws ParseError"
+Randomness seeded to: 1894195774
+===============================================================================
+All tests passed (1 assertion in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"engine: tile row wrong length throws ParseError" end time: Sep 10 22:38 CEST
+"engine: tile row wrong length throws ParseError" time elapsed: 00:00:00
+----------------------------------------------------------
+
+34/50 Testing: engine: is_running false before start
+34/50 Test: engine: is_running false before start
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "engine: is_running false before start"
+Directory: /home/teriyakigod/source/citsy/build
+"engine: is_running false before start" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "engine: is_running false before start"
+Randomness seeded to: 835147003
+===============================================================================
+All tests passed (1 assertion in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"engine: is_running false before start" end time: Sep 10 22:38 CEST
+"engine: is_running false before start" time elapsed: 00:00:00
+----------------------------------------------------------
+
+35/50 Testing: engine: is_running true after start
+35/50 Test: engine: is_running true after start
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "engine: is_running true after start"
+Directory: /home/teriyakigod/source/citsy/build
+"engine: is_running true after start" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "engine: is_running true after start"
+Randomness seeded to: 1012620232
+===============================================================================
+All tests passed (1 assertion in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"engine: is_running true after start" end time: Sep 10 22:38 CEST
+"engine: is_running true after start" time elapsed: 00:00:00
+----------------------------------------------------------
+
+36/50 Testing: engine: start calls on_engine_ready
+36/50 Test: engine: start calls on_engine_ready
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "engine: start calls on_engine_ready"
+Directory: /home/teriyakigod/source/citsy/build
+"engine: start calls on_engine_ready" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "engine: start calls on_engine_ready"
+Randomness seeded to: 2940009219
+===============================================================================
+All tests passed (1 assertion in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"engine: start calls on_engine_ready" end time: Sep 10 22:38 CEST
+"engine: start calls on_engine_ready" time elapsed: 00:00:00
+----------------------------------------------------------
+
+37/50 Testing: engine: update calls present once
+37/50 Test: engine: update calls present once
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "engine: update calls present once"
+Directory: /home/teriyakigod/source/citsy/build
+"engine: update calls present once" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "engine: update calls present once"
+Randomness seeded to: 3236770432
+===============================================================================
+All tests passed (1 assertion in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"engine: update calls present once" end time: Sep 10 22:38 CEST
+"engine: update calls present once" time elapsed: 00:00:00
+----------------------------------------------------------
+
+38/50 Testing: engine: update multiple frames accumulates snapshots
+38/50 Test: engine: update multiple frames accumulates snapshots
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "engine: update multiple frames accumulates snapshots"
+Directory: /home/teriyakigod/source/citsy/build
+"engine: update multiple frames accumulates snapshots" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "engine: update multiple frames accumulates snapshots"
+Randomness seeded to: 2487905200
+===============================================================================
+All tests passed (1 assertion in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"engine: update multiple frames accumulates snapshots" end time: Sep 10 22:38 CEST
+"engine: update multiple frames accumulates snapshots" time elapsed: 00:00:00
+----------------------------------------------------------
+
+39/50 Testing: engine: present receives correctly-sized buffers
+39/50 Test: engine: present receives correctly-sized buffers
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "engine: present receives correctly-sized buffers"
+Directory: /home/teriyakigod/source/citsy/build
+"engine: present receives correctly-sized buffers" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "engine: present receives correctly-sized buffers"
+Randomness seeded to: 1940839850
+===============================================================================
+All tests passed (4 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"engine: present receives correctly-sized buffers" end time: Sep 10 22:38 CEST
+"engine: present receives correctly-sized buffers" time elapsed: 00:00:00
+----------------------------------------------------------
+
+40/50 Testing: engine: present receives palette with at least 3 entries
+40/50 Test: engine: present receives palette with at least 3 entries
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "engine: present receives palette with at least 3 entries"
+Directory: /home/teriyakigod/source/citsy/build
+"engine: present receives palette with at least 3 entries" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "engine: present receives palette with at least 3 entries"
+Randomness seeded to: 4098131242
+===============================================================================
+All tests passed (2 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"engine: present receives palette with at least 3 entries" end time: Sep 10 22:38 CEST
+"engine: present receives palette with at least 3 entries" time elapsed: 00:00:00
+----------------------------------------------------------
+
+41/50 Testing: engine: present palette matches parsed palette colors
+41/50 Test: engine: present palette matches parsed palette colors
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "engine: present palette matches parsed palette colors"
+Directory: /home/teriyakigod/source/citsy/build
+"engine: present palette matches parsed palette colors" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "engine: present palette matches parsed palette colors"
+Randomness seeded to: 986343318
+===============================================================================
+All tests passed (11 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"engine: present palette matches parsed palette colors" end time: Sep 10 22:38 CEST
+"engine: present palette matches parsed palette colors" time elapsed: 00:00:00
+----------------------------------------------------------
+
+42/50 Testing: engine: present gfx_mode is Map in Phase 0
+42/50 Test: engine: present gfx_mode is Map in Phase 0
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "engine: present gfx_mode is Map in Phase 0"
+Directory: /home/teriyakigod/source/citsy/build
+"engine: present gfx_mode is Map in Phase 0" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "engine: present gfx_mode is Map in Phase 0"
+Randomness seeded to: 3245684431
+===============================================================================
+All tests passed (2 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"engine: present gfx_mode is Map in Phase 0" end time: Sep 10 22:38 CEST
+"engine: present gfx_mode is Map in Phase 0" time elapsed: 00:00:00
+----------------------------------------------------------
+
+43/50 Testing: engine: sound channels inactive in Phase 0
+43/50 Test: engine: sound channels inactive in Phase 0
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "engine: sound channels inactive in Phase 0"
+Directory: /home/teriyakigod/source/citsy/build
+"engine: sound channels inactive in Phase 0" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "engine: sound channels inactive in Phase 0"
+Randomness seeded to: 63537241
+===============================================================================
+All tests passed (3 assertions in 1 test case)
+
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"engine: sound channels inactive in Phase 0" end time: Sep 10 22:38 CEST
+"engine: sound channels inactive in Phase 0" time elapsed: 00:00:00
+----------------------------------------------------------
+
+44/50 Testing: engine: textbox hidden in Phase 0
+44/50 Test: engine: textbox hidden in Phase 0
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "engine: textbox hidden in Phase 0"
+Directory: /home/teriyakigod/source/citsy/build
+"engine: textbox hidden in Phase 0" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "engine: textbox hidden in Phase 0"
+Randomness seeded to: 366561368
+===============================================================================
+All tests passed (2 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"engine: textbox hidden in Phase 0" end time: Sep 10 22:38 CEST
+"engine: textbox hidden in Phase 0" time elapsed: 00:00:00
+----------------------------------------------------------
+
+45/50 Testing: engine: update before start is a no-op
+45/50 Test: engine: update before start is a no-op
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "engine: update before start is a no-op"
+Directory: /home/teriyakigod/source/citsy/build
+"engine: update before start is a no-op" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "engine: update before start is a no-op"
+Randomness seeded to: 1253810642
+===============================================================================
+All tests passed (1 assertion in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"engine: update before start is a no-op" end time: Sep 10 22:38 CEST
+"engine: update before start is a no-op" time elapsed: 00:00:00
+----------------------------------------------------------
+
+46/50 Testing: mock_host: delta_time_ms default
+46/50 Test: mock_host: delta_time_ms default
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "mock_host: delta_time_ms default"
+Directory: /home/teriyakigod/source/citsy/build
+"mock_host: delta_time_ms default" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "mock_host: delta_time_ms default"
+Randomness seeded to: 2335522178
+===============================================================================
+All tests passed (1 assertion in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"mock_host: delta_time_ms default" end time: Sep 10 22:38 CEST
+"mock_host: delta_time_ms default" time elapsed: 00:00:00
+----------------------------------------------------------
+
+47/50 Testing: mock_host: button default false
+47/50 Test: mock_host: button default false
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "mock_host: button default false"
+Directory: /home/teriyakigod/source/citsy/build
+"mock_host: button default false" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "mock_host: button default false"
+Randomness seeded to: 4045277816
+===============================================================================
+All tests passed (2 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"mock_host: button default false" end time: Sep 10 22:38 CEST
+"mock_host: button default false" time elapsed: 00:00:00
+----------------------------------------------------------
+
+48/50 Testing: mock_host: set_button
+48/50 Test: mock_host: set_button
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "mock_host: set_button"
+Directory: /home/teriyakigod/source/citsy/build
+"mock_host: set_button" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "mock_host: set_button"
+Randomness seeded to: 4108576110
+===============================================================================
+All tests passed (2 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"mock_host: set_button" end time: Sep 10 22:38 CEST
+"mock_host: set_button" time elapsed: 00:00:00
+----------------------------------------------------------
+
+49/50 Testing: mock_host: log messages captured
+49/50 Test: mock_host: log messages captured
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "mock_host: log messages captured"
+Directory: /home/teriyakigod/source/citsy/build
+"mock_host: log messages captured" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "mock_host: log messages captured"
+Randomness seeded to: 3589447
+===============================================================================
+All tests passed (3 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"mock_host: log messages captured" end time: Sep 10 22:38 CEST
+"mock_host: log messages captured" time elapsed: 00:00:00
+----------------------------------------------------------
+
+50/50 Testing: mock_host: reset clears state
+50/50 Test: mock_host: reset clears state
+Command: "/home/teriyakigod/source/citsy/build/citsy_tests" "mock_host: reset clears state"
+Directory: /home/teriyakigod/source/citsy/build
+"mock_host: reset clears state" start time: Sep 10 22:38 CEST
+Output:
+----------------------------------------------------------
+Filters: "mock_host: reset clears state"
+Randomness seeded to: 1433684265
+===============================================================================
+All tests passed (3 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"mock_host: reset clears state" end time: Sep 10 22:38 CEST
+"mock_host: reset clears state" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Sep 10 22:38 CEST

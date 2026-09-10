@@ -1,0 +1,93 @@
+
+---
+events:
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/usr/share/cmake-4.2/Modules/CMakeDetermineSystem.cmake:12 (find_program)"
+      - "CMakeLists.txt:16 (project)"
+    mode: "program"
+    variable: "CMAKE_UNAME"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "uname"
+    candidate_directories:
+      - "/home/teriyakigod/.local/bin/"
+      - "/home/teriyakigod/.pyenv/shims/"
+      - "/home/teriyakigod/.pyenv/bin/"
+      - "/home/teriyakigod/source/emsdk/"
+      - "/home/teriyakigod/source/emsdk/upstream/emscripten/"
+      - "/home/teriyakigod/.pyenv/libexec/"
+      - "/home/teriyakigod/.pyenv/plugins/python-build/bin/"
+      - "/home/teriyakigod/.pyenv/plugins/pyenv-virtualenv/bin/"
+      - "/home/teriyakigod/.pyenv/plugins/pyenv-update/bin/"
+      - "/home/teriyakigod/.pyenv/plugins/pyenv-doctor/bin/"
+      - "/usr/share/cursor/resources/app/node_modules/@vscode/ripgrep/bin/"
+      - "/home/teriyakigod/.nvm/versions/node/v22.17.0/bin/"
+      - "/usr/local/sbin/"
+      - "/usr/local/bin/"
+      - "/usr/sbin/"
+      - "/usr/bin/"
+      - "/sbin/"
+      - "/bin/"
+      - "/usr/games/"
+      - "/usr/local/games/"
+      - "/snap/bin/"
+    searched_directories:
+      - "/home/teriyakigod/.local/bin/uname"
+      - "/home/teriyakigod/.pyenv/shims/uname"
+      - "/home/teriyakigod/.pyenv/bin/uname"
+      - "/home/teriyakigod/source/emsdk/uname"
+      - "/home/teriyakigod/source/emsdk/upstream/emscripten/uname"
+      - "/home/teriyakigod/.pyenv/libexec/uname"
+      - "/home/teriyakigod/.pyenv/plugins/python-build/bin/uname"
+      - "/home/teriyakigod/.pyenv/plugins/pyenv-virtualenv/bin/uname"
+      - "/home/teriyakigod/.pyenv/plugins/pyenv-update/bin/uname"
+      - "/home/teriyakigod/.pyenv/plugins/pyenv-doctor/bin/uname"
+      - "/usr/share/cursor/resources/app/node_modules/@vscode/ripgrep/bin/uname"
+      - "/home/teriyakigod/.nvm/versions/node/v22.17.0/bin/uname"
+      - "/usr/local/sbin/uname"
+      - "/usr/local/bin/uname"
+      - "/usr/sbin/uname"
+    found: "/usr/bin/uname"
+    search_context:
+      ENV{PATH}:
+        - "/home/teriyakigod/.local/bin"
+        - "/home/teriyakigod/.pyenv/shims"
+        - "/home/teriyakigod/.pyenv/bin"
+        - "/home/teriyakigod/source/emsdk"
+        - "/home/teriyakigod/source/emsdk/upstream/emscripten"
+        - "/home/teriyakigod/.pyenv/libexec"
+        - "/home/teriyakigod/.pyenv/plugins/python-build/bin"
+        - "/home/teriyakigod/.pyenv/plugins/pyenv-virtualenv/bin"
+        - "/home/teriyakigod/.pyenv/plugins/pyenv-update/bin"
+        - "/home/teriyakigod/.pyenv/plugins/pyenv-doctor/bin"
+        - "/usr/share/cursor/resources/app/node_modules/@vscode/ripgrep/bin"
+        - "/home/teriyakigod/.local/bin"
+        - "/home/teriyakigod/.pyenv/bin"
+        - "/home/teriyakigod/.nvm/versions/node/v22.17.0/bin"
+        - "/usr/local/sbin"
+        - "/usr/local/bin"
+        - "/usr/sbin"
+        - "/usr/bin"
+        - "/sbin"
+        - "/bin"
+        - "/usr/games"
+        - "/usr/local/games"
+        - "/snap/bin"
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/usr/share/cmake-4.2/Modules/CMakeDetermineSystem.cmake:212 (message)"
+      - "CMakeLists.txt:16 (project)"
+    message: |
+      The system is: Linux - 7.0.0-31-generic - x86_64
+...

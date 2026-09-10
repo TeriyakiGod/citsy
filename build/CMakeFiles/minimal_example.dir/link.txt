@@ -1,0 +1,1 @@
+/usr/bin/c++ -g -Wl,--dependency-file=CMakeFiles/minimal_example.dir/link.d CMakeFiles/minimal_example.dir/examples/minimal/main.cpp.o -o minimal_example  libcitsy.a

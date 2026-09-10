@@ -1,0 +1,14 @@
+/home/teriyakigod/source/citsy/build/CMakeFiles/citsy.dir
+/home/teriyakigod/source/citsy/build/CMakeFiles/citsy_tests.dir
+/home/teriyakigod/source/citsy/build/CMakeFiles/minimal_example.dir
+/home/teriyakigod/source/citsy/build/CMakeFiles/test.dir
+/home/teriyakigod/source/citsy/build/CMakeFiles/edit_cache.dir
+/home/teriyakigod/source/citsy/build/CMakeFiles/rebuild_cache.dir
+/home/teriyakigod/source/citsy/build/_deps/catch2-build/CMakeFiles/test.dir
+/home/teriyakigod/source/citsy/build/_deps/catch2-build/CMakeFiles/edit_cache.dir
+/home/teriyakigod/source/citsy/build/_deps/catch2-build/CMakeFiles/rebuild_cache.dir
+/home/teriyakigod/source/citsy/build/_deps/catch2-build/src/CMakeFiles/Catch2.dir
+/home/teriyakigod/source/citsy/build/_deps/catch2-build/src/CMakeFiles/Catch2WithMain.dir
+/home/teriyakigod/source/citsy/build/_deps/catch2-build/src/CMakeFiles/test.dir
+/home/teriyakigod/source/citsy/build/_deps/catch2-build/src/CMakeFiles/edit_cache.dir
+/home/teriyakigod/source/citsy/build/_deps/catch2-build/src/CMakeFiles/rebuild_cache.dir

@@ -422,10 +422,10 @@ The raylib example creates a window, scales the 128×128 logical framebuffer wit
 
 Development is staged toward practical compatibility with games made in current Bitsy versions.
 
-- [ ] **Phase 0 — Foundation**
-  - [ ] `.bitsy` parser and in-memory `Game` model
-  - [ ] `Host` interface and `MockHost`
-  - [ ] Unit tests against sample game files
+- [x] **Phase 0 — Foundation**
+  - [x] `.bitsy` parser and in-memory `Game` model
+  - [x] `Host` interface and `MockHost`
+  - [x] Unit tests against sample game files
 
 - [ ] **Phase 1 — Playable core**
   - [ ] Avatar movement and wall collision
