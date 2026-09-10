@@ -603,3 +603,92 @@ TEST_CASE("fixture: two_rooms.bitsy has two rooms and exits", "[fixture]") {
     CHECK(game.rooms.at("0").palette_id == "0");
     CHECK(game.rooms.at("1").palette_id == "1");
 }
+
+// ---------------------------------------------------------------------------
+// Real-world fixture: mossland by candle (Bitsy v6.4)
+// https://adamledoux.itch.io/mossland
+// ---------------------------------------------------------------------------
+
+TEST_CASE("fixture: mossland.bitsy parses real game", "[fixture][mossland]") {
+    auto text = load_fixture("mossland.bitsy");
+    citsy::Game game;
+    REQUIRE_NOTHROW(game = citsy::parse(text));
+
+    // Header
+    CHECK(game.version.major == 6);
+    CHECK(game.version.minor == 4);
+    CHECK(game.room_format == 1);
+
+    // Palettes
+    CHECK(game.palettes.size() == 3);
+    REQUIRE(game.palettes.count("0") == 1);
+    REQUIRE(game.palettes.count("1") == 1);
+    REQUIRE(game.palettes.count("2") == 1);
+    CHECK(game.palettes.at("0").name == "brown");
+    CHECK(game.palettes.at("1").name == "green");
+    CHECK(game.palettes.at("2").name == "purple");
+    CHECK(game.palettes.at("0").colors.size() == 3);
+
+    // Entity counts
+    CHECK(game.rooms.size()   == 7);
+    CHECK(game.tiles.size()   == 31);
+    CHECK(game.sprites.size() == 18);
+    CHECK(game.items.size()   == 2);
+    CHECK(game.dialogues.size() == 10);
+    CHECK(game.endings.size() == 1);
+
+    // Avatar (sprite A) — two animation frames, starts in room 1
+    const auto* avatar = game.avatar();
+    REQUIRE(avatar != nullptr);
+    CHECK(avatar->frames.size() == 2);
+    REQUIRE(avatar->position.has_value());
+    CHECK(avatar->position->room_id == "1");
+    CHECK(avatar->position->x == 8);
+    CHECK(avatar->position->y == 9);
+    CHECK(game.start_room_id() == "1");
+
+    // Tiles — named wall tile and animated leaf tile
+    REQUIRE(game.tiles.count("b") == 1);
+    CHECK(game.tiles.at("b").name == "Moss");
+    CHECK(game.tiles.at("b").is_wall == true);
+    REQUIRE(game.tiles.count("p") == 1);
+    CHECK(game.tiles.at("p").frames.size() == 2);
+    CHECK(game.tiles.at("p").is_wall == true);
+
+    // Items
+    REQUIRE(game.items.count("0") == 1);
+    REQUIRE(game.items.count("1") == 1);
+    CHECK(game.items.at("0").name == "Spores");
+    CHECK(game.items.at("1").name == "Can");
+    CHECK(game.items.at("0").dialog_id == "ITM_1");
+    CHECK(game.items.at("1").dialog_id == "ITM_0");
+
+    // Room 2 — seven placed spore tiles plus the watering can
+    REQUIRE(game.rooms.count("2") == 1);
+    const auto& room2 = game.rooms.at("2");
+    CHECK(room2.palette_id == "2");
+    CHECK(room2.exits.size() == 4);
+    CHECK(room2.items.size() == 7);
+    CHECK(room2.items[0].item_id == "1");
+    CHECK(room2.items[0].x == 10);
+    CHECK(room2.items[0].y == 12);
+
+    // Room 6 — ending trigger tile
+    REQUIRE(game.rooms.count("6") == 1);
+    const auto& room6 = game.rooms.at("6");
+    REQUIRE(room6.endings.size() == 1);
+    CHECK(room6.endings[0].ending_id == "0");
+    CHECK(room6.endings[0].x == 15);
+    CHECK(room6.endings[0].y == 8);
+
+    // Dialogues — simple text and scripted sequence (triple-quoted blocks)
+    REQUIRE(game.dialogues.count("SPR_0") == 1);
+    CHECK(game.dialogues.at("SPR_0").content == "I'm a cat");
+    REQUIRE(game.dialogues.count("SPR_1") == 1);
+    CHECK(game.dialogues.at("SPR_1").content.find("sequence") != std::string::npos);
+    CHECK(game.dialogues.at("SPR_1").content.find("I tend the moss") != std::string::npos);
+
+    // Ending text (triple-quoted block)
+    REQUIRE(game.endings.count("0") == 1);
+    CHECK(game.endings.at("0").text.find("it's a big world, little bug") != std::string::npos);
+}
