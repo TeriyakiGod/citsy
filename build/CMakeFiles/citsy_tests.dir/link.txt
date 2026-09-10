@@ -1,1 +1,0 @@
-/usr/bin/c++ -g -Wl,--dependency-file=CMakeFiles/citsy_tests.dir/link.d CMakeFiles/citsy_tests.dir/tests/unit/test_parser.cpp.o CMakeFiles/citsy_tests.dir/tests/unit/test_engine.cpp.o -o citsy_tests  libcitsy.a _deps/catch2-build/src/libCatch2Maind.a _deps/catch2-build/src/libCatch2d.a

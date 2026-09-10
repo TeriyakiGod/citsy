@@ -1,2 +1,0 @@
-/usr/bin/ar qc libcitsy.a CMakeFiles/citsy.dir/src/parser/parser.cpp.o CMakeFiles/citsy.dir/src/engine/engine.cpp.o
-/usr/bin/ranlib libcitsy.a

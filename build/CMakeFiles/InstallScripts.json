@@ -1,9 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"/home/teriyakigod/source/citsy/build/cmake_install.cmake",
-		"/home/teriyakigod/source/citsy/build/_deps/catch2-build/cmake_install.cmake",
-		"/home/teriyakigod/source/citsy/build/_deps/catch2-build/src/cmake_install.cmake"
-	],
-	"Parallel" : false
-}
