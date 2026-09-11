@@ -22,6 +22,7 @@ add_library(citsy STATIC
     src/parser/parser.cpp
     src/engine/engine.cpp
     src/dialog/linear.cpp
+    src/dialog/script.cpp
     src/render/compose.cpp
 )
 

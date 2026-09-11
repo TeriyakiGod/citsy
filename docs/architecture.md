@@ -63,7 +63,7 @@ citsy/
 │   ├── parser/             # .bitsy lexer / parser  →  Game
 │   ├── model/              # Game, Room, Tile, Sprite, Item, …
 │   ├── engine/             # Simulation loop, movement, collision, exits
-│   ├── dialog/             # Linear dialog pages (scripting in Phase 2)
+│   ├── dialog/             # Script interpreter (variables, lists, inventory)
 │   ├── render/             # Logical compositor → map1 / map2 / video
 │   ├── font/               # (planned) .bitsyfont rendering
 │   ├── sound/              # (planned) Channel parameter generation
@@ -84,7 +84,7 @@ citsy/
 | Location | Visibility | Purpose |
 |---|---|---|
 | `include/citsy/` | Public | Stable consumer-facing headers |
-| `src/model/`, `src/parser/`, `src/dialog/`, `src/render/` | Internal | Game data, parser, linear dialog, compositor; tests may include directly |
+| `src/model/`, `src/parser/`, `src/dialog/`, `src/render/` | Internal | Game data, parser, dialog VM, compositor; tests may include directly |
 | `backends/mock/` | Backend | Test double; not linked into the core library |
 
 Embedders depend only on `include/citsy/`. Internal headers use paths like `"src/model/game.hpp"` and are not installed as part of the public ABI.
@@ -110,7 +110,7 @@ Strongly typed C++ structures mirroring Bitsy entities:
 | `Sprite` | `SPR` | Animated character; avatar is always id `A` |
 | `Item` | `ITM` | Collectible object |
 | `Room` | `ROOM` | 16×16 tile grid, items, exits, endings, palette |
-| `Dialogue` | `DLG` | Script text; Phase 1 plays quoted lines linearly |
+| `Dialogue` | `DLG` | Script text; evaluated by the dialog VM |
 | `Variable` | `VAR` | Global number or string state |
 | `Ending` | `END` | End-game message |
 
@@ -121,7 +121,7 @@ Strongly typed C++ structures mirroring Bitsy entities:
 The `Engine` class owns:
 
 1. A parsed `Game` (via pimpl)
-2. Runtime state (current room, avatar position, open dialog, remaining room items)
+2. Runtime state (current room, avatar position, open dialog, remaining room items, inventory, variables)
 3. Memory blocks the host reads each frame
 
 **Lifecycle:**
@@ -136,11 +136,11 @@ while (engine.is_running()) {
 }
 ```
 
-**Phase 1 behavior:** `update()` reads directional input, moves the avatar with wall and sprite collision, follows room exits, runs linear dialog, and composes `map1` / `map2` / `video` for the current room.
+**Phase 2 behavior:** `update()` reads directional input, moves the avatar with wall and sprite collision, follows room exits, runs dialog scripts (variables, conditionals, inventory, `{end}` / `{exit}`), triggers ending tiles, and composes `map1` / `map2` / `video` for the current room.
 
 ### Dialog (`src/dialog/`)
 
-Phase 1 extracts linear text pages from `DLG` source (`extract_dialog_pages`). Quoted strings are pages; `{p}` starts a new page and `{br}` is a newline. Variable assignment, conditionals, and item/exit actions are Phase 2.
+`parse_dialog_script` / `run_dialog_script` evaluate Bitsy DLG source against a `DialogWorld` (variables and inventory). Quoted strings are pages; `{p}` and blank lines in lists start a new page; `{br}` is a newline. See [Dialog scripting](bitsy/dialog.md).
 
 ### Render (`src/render/`)
 

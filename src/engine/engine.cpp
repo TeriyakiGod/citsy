@@ -1,14 +1,16 @@
 #include <citsy/engine.hpp>
 
-#include "src/dialog/linear.hpp"
+#include "src/dialog/script.hpp"
 #include "src/model/game.hpp"
 #include "src/parser/parser.hpp"
 #include "src/render/compose.hpp"
 
 #include <algorithm>
 #include <array>
+#include <charconv>
 #include <functional>
 #include <fstream>
+#include <random>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -51,13 +53,24 @@ enum class Dir { None = -1, Up = 0, Down = 1, Left = 2, Right = 3 };
     return 0;
 }
 
+[[nodiscard]] Value parse_init_value(std::string_view s) {
+    if (s == "true")  return Value::number(1);
+    if (s == "false") return Value::number(0);
+    double n = 0;
+    const char* begin = s.data();
+    const char* end = s.data() + s.size();
+    auto [ptr, ec] = std::from_chars(begin, end, n);
+    if (ec == std::errc{} && ptr == end) return Value::number(n);
+    return Value::string(std::string(s));
+}
+
 } // namespace
 
 // ===========================================================================
 // Engine::Impl
 // ===========================================================================
 
-struct Engine::Impl {
+struct Engine::Impl : DialogWorld {
     Game game;
 
     bool running = false;
@@ -67,6 +80,10 @@ struct Engine::Impl {
     int         avatar_y = 0;
 
     std::unordered_map<std::string, std::vector<RoomItem>> room_items;
+    std::unordered_map<std::string, Value>                 variables;
+    std::unordered_map<std::string, int>                   inventory;
+    std::unordered_map<std::string, DialogScript>          scripts;
+    std::mt19937                                           rng{0xC175u};
 
     // Input / movement (Bitsy-compatible hold-to-move).
     Dir    cur_dir        = Dir::None;
@@ -100,6 +117,49 @@ struct Engine::Impl {
             palette = it->second.colors;
         }
         while (palette.size() < 3) palette.push_back({});
+    }
+
+    [[nodiscard]] std::string resolve_item_id(std::string_view id_or_name) const {
+        std::string key{id_or_name};
+        if (game.items.count(key)) return key;
+        for (const auto& [id, itm] : game.items) {
+            if (itm.name == key) return id;
+        }
+        return key;
+    }
+
+    Value get_var(std::string_view name) const override {
+        auto it = variables.find(std::string(name));
+        if (it == variables.end()) return Value::number(0);
+        return it->second;
+    }
+
+    void set_var(std::string_view name, Value v) override {
+        variables[std::string(name)] = std::move(v);
+    }
+
+    int get_item(std::string_view id_or_name) const override {
+        auto it = inventory.find(resolve_item_id(id_or_name));
+        return it == inventory.end() ? 0 : it->second;
+    }
+
+    void set_item(std::string_view id_or_name, int count) override {
+        inventory[resolve_item_id(id_or_name)] = std::max(0, count);
+    }
+
+    std::string resolve_room(std::string_view id_or_name) const override {
+        std::string key{id_or_name};
+        if (game.rooms.count(key)) return key;
+        for (const auto& [id, room] : game.rooms) {
+            if (room.name == key) return id;
+        }
+        return key;
+    }
+
+    int random_int(int n) override {
+        if (n <= 1) return 0;
+        std::uniform_int_distribution<int> dist(0, n - 1);
+        return dist(rng);
     }
 
     [[nodiscard]] const Room* current_room() const {
@@ -143,6 +203,15 @@ struct Engine::Impl {
         for (const auto& [id, room] : game.rooms) {
             room_items[id] = room.items;
         }
+
+        variables.clear();
+        for (const auto& [name, var] : game.variables) {
+            variables[name] = parse_init_value(var.value);
+        }
+
+        inventory.clear();
+        scripts.clear();
+        rng.seed(0xC175u);
 
         dlg_open = false;
         dlg_pages.clear();
@@ -232,11 +301,51 @@ struct Engine::Impl {
         return nullptr;
     }
 
-    [[nodiscard]] std::vector<std::string> pages_for_dialog(const std::string& dialog_id) const {
-        if (dialog_id.empty()) return {};
+    [[nodiscard]] const EndingRef* ending_at(int x, int y) const {
+        const Room* room = current_room();
+        if (!room) return nullptr;
+        for (const EndingRef& e : room->endings) {
+            if (e.x == x && e.y == y) return &e;
+        }
+        return nullptr;
+    }
+
+    DialogScript& script_for(const std::string& key, std::string_view content) {
+        auto it = scripts.find(key);
+        if (it == scripts.end()) {
+            it = scripts.emplace(key, parse_dialog_script(content)).first;
+        }
+        return it->second;
+    }
+
+    void play_script(const std::string& key, std::string_view content,
+                     std::function<void()> on_end) {
+        DialogResult r = run_dialog_script(script_for(key, content), *this);
+        const bool end_game = r.end_game;
+        auto queued_exit = std::move(r.exit);
+        begin_dialog(std::move(r.pages),
+                     [this, end_game, queued_exit = std::move(queued_exit),
+                      on_end = std::move(on_end)]() mutable {
+                         if (on_end) on_end();
+                         if (queued_exit) {
+                             enter_room(queued_exit->room_id, queued_exit->x,
+                                        queued_exit->y);
+                         }
+                         if (end_game) running = false;
+                     });
+    }
+
+    void play_dialog_id(const std::string& dialog_id, std::function<void()> on_end) {
+        if (dialog_id.empty()) {
+            begin_dialog({}, std::move(on_end));
+            return;
+        }
         auto it = game.dialogues.find(dialog_id);
-        if (it == game.dialogues.end()) return {};
-        return extract_dialog_pages(it->second.content);
+        if (it == game.dialogues.end()) {
+            begin_dialog({}, std::move(on_end));
+            return;
+        }
+        play_script("DLG:" + dialog_id, it->second.content, std::move(on_end));
     }
 
     void finish_dialog(bool from_player) {
@@ -289,20 +398,14 @@ struct Engine::Impl {
     }
 
     void take_exit(const Exit& ext) {
-        // Copy fields — `ext` may dangle if we ever mutate rooms.
         const std::string dest = ext.dest_room_id;
         const int dx = ext.dest_x;
         const int dy = ext.dest_y;
-        auto pages = pages_for_dialog(ext.dialog_id);
-        pages.erase(std::remove_if(pages.begin(), pages.end(),
-                                   [](const std::string& s) { return s.empty(); }),
-                    pages.end());
-        if (pages.empty()) {
-            // Instant warp (Phase 3 will play transition_effect).
+        if (ext.dialog_id.empty()) {
             enter_room(dest, dx, dy);
             return;
         }
-        begin_dialog(std::move(pages), [this, dest, dx, dy] {
+        play_dialog_id(ext.dialog_id, [this, dest, dx, dy] {
             enter_room(dest, dx, dy);
         });
     }
@@ -318,9 +421,10 @@ struct Engine::Impl {
             if (it != game.items.end()) dlg_id = it->second.dialog_id;
         }
 
+        inventory[ri.item_id] += 1;
+
         const std::string room_id = current_room_id;
-        auto pages = pages_for_dialog(dlg_id);
-        begin_dialog(std::move(pages), [this, room_id, index] {
+        play_dialog_id(dlg_id, [this, room_id, index] {
             auto it = room_items.find(room_id);
             if (it == room_items.end()) return;
             if (index >= 0 && index < static_cast<int>(it->second.size())) {
@@ -330,7 +434,14 @@ struct Engine::Impl {
     }
 
     void handle_sprite(const Sprite& spr) {
-        begin_dialog(pages_for_dialog(spr.dialog_id), {});
+        play_dialog_id(spr.dialog_id, {});
+    }
+
+    void handle_ending(const EndingRef& er) {
+        std::string content;
+        auto it = game.endings.find(er.ending_id);
+        if (it != game.endings.end()) content = it->second.text;
+        play_script("END:" + er.ending_id, content, [this] { running = false; });
     }
 
     void try_move(Dir direction) {
@@ -352,8 +463,9 @@ struct Engine::Impl {
         const int itm = item_index_at(avatar_x, avatar_y);
         if (itm >= 0) handle_item(itm);
 
-        const Exit* ext = exit_at(avatar_x, avatar_y);
-        if (ext) {
+        if (const EndingRef* er = ending_at(avatar_x, avatar_y)) {
+            handle_ending(*er);
+        } else if (const Exit* ext = exit_at(avatar_x, avatar_y)) {
             take_exit(*ext);
         } else if (bumped) {
             handle_sprite(*bumped);
@@ -469,6 +581,15 @@ bool Engine::dialog_active() const noexcept {
 
 std::string_view Engine::dialog_line() const noexcept {
     return impl_ ? impl_->dialog_line() : std::string_view{};
+}
+
+int Engine::item_count(std::string_view id_or_name) const {
+    return impl_ ? impl_->get_item(id_or_name) : 0;
+}
+
+std::string Engine::variable_value(std::string_view name) const {
+    if (!impl_) return {};
+    return impl_->get_var(name).as_string();
 }
 
 } // namespace citsy

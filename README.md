@@ -72,6 +72,7 @@ Detailed guides live in [`docs/`](docs/README.md):
 | [Tools & build](docs/tools.md) | CMake options, compilers, dependencies, build targets |
 | [Testing](docs/testing.md) | Running tests, writing tests, fixtures, MockHost |
 | [Bitsy data model](docs/bitsy/data-model.md) | Entity types, properties, file syntax, relationships |
+| [Dialog scripting](docs/bitsy/dialog.md) | Variables, lists, inventory, endings |
 
 For agent-oriented conventions, see [AGENTS.md](AGENTS.md).
 
@@ -234,7 +235,7 @@ Planned modules inside the core library:
 | `parser/` | Load and serialize `.bitsy` text; validate segments |
 | `model/` | `Game`, `Room`, `Tile`, `Sprite`, `Item`, `Dialogue`, `Variable`, … |
 | `engine/` | Main loop, avatar movement, collision, room transitions |
-| `dialog/` | Linear dialog pages; full `{variable}` scripting in Phase 2 |
+| `dialog/` | Script interpreter: variables, lists, inventory, endings |
 | `render/` | Logical renderer — fills video/map/textbox memory blocks (no GPU) |
 | `font/` | Built-in and custom `.bitsyfont` glyph rendering into textbox buffer |
 | `sound/` | Two-channel square-wave parameter generation |
@@ -426,11 +427,11 @@ Development is staged toward practical compatibility with games made in current 
   - [x] Exit transitions between rooms
   - [x] Basic dialog (linear text)
 
-- [ ] **Phase 2 — Scripting & state**
-  - [ ] Variables (numbers and strings)
-  - [ ] Conditional dialog branches
-  - [ ] Item give/take and inventory
-  - [ ] Endings
+- [x] **Phase 2 — Scripting & state**
+  - [x] Variables (numbers and strings)
+  - [x] Conditional dialog branches
+  - [x] Item give/take and inventory
+  - [x] Endings
 
 - [ ] **Phase 3 — Polish**
   - [ ] Animation timing

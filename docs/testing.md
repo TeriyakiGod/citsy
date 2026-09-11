@@ -60,23 +60,24 @@ tests/
 ├── unit/
 │   ├── test_parser.cpp     # Parser and Game model tests
 │   ├── test_engine.cpp     # Engine lifecycle and MockHost integration
-│   ├── test_dialog.cpp     # Linear dialog page extraction
-│   └── test_simulation.cpp # Movement, collision, render, exits, dialog
+│   ├── test_dialog.cpp     # Dialog page extraction and script interpreter
+│   └── test_simulation.cpp # Movement, collision, render, exits, dialog, inventory, endings
 └── data/
     ├── minimal.bitsy       # Full game with all entity types
     ├── animated.bitsy      # Multi-frame tile animation
     ├── two_rooms.bitsy     # Two rooms with exits and palettes
-    └── playable.bitsy      # Walls, NPC dialog, item, room exit
+    ├── playable.bitsy      # Walls, NPC dialog, item, room exit
+    └── scripted.bitsy      # Variables, conditional dialog, inventory, ending
 ```
 
 | File | Tags | What it covers |
 |---|---|---|
 | `test_parser.cpp` | `[parser]`, `[palette]`, `[tile]`, `[sprite]`, `[item]`, `[room]`, `[dialogue]`, `[variable]`, `[ending]`, `[model]`, `[errors]`, `[fixture]` | `.bitsy` parsing, entity fields, error handling, fixture files |
 | `test_engine.cpp` | `[engine]`, `[mock]` | Engine construction, lifecycle, buffer sizes, palette output, MockHost behavior |
-| `test_dialog.cpp` | `[dialog]` | Linear page extraction from DLG source |
-| `test_simulation.cpp` | `[engine]`, `[sim]`, `[render]`, `[dialog]`, `[fixture]` | Movement, walls, map/video compose, sprite/item drawing, exits, linear dialog |
+| `test_dialog.cpp` | `[dialog]`, `[script]` | Page extraction and script evaluation (variables, lists, items, `{end}`/`{exit}`) |
+| `test_simulation.cpp` | `[engine]`, `[sim]`, `[render]`, `[dialog]`, `[inventory]`, `[ending]`, `[fixture]` | Movement, walls, map/video compose, sprite/item drawing, exits, dialog, inventory, endings |
 
-As of Phase 1, the suite contains **84 tests**, all passing.
+As of Phase 2, the suite contains **107 tests**, all passing.
 
 ---
 
@@ -215,8 +216,11 @@ Tests use tags for filtering. Current tags:
 | `[parser]` | All parser tests |
 | `[engine]` | Engine lifecycle and output |
 | `[mock]` | MockHost-specific tests |
-| `[dialog]` | Linear dialog extraction and playback |
+| `[dialog]` | Dialog extraction, script evaluation, and playback |
+| `[script]` | Dialog VM (variables, lists, `{item}`, `{end}`, `{exit}`) |
 | `[sim]` | Movement, collision, exits, room state |
+| `[inventory]` | Item pickup and `{item}` give/take |
+| `[ending]` | Ending tiles and `{end}` |
 | `[render]` | map1 / map2 / video composition |
 | `[fixture]` | Tests loading `tests/data/*.bitsy` |
 | `[errors]` | Parse error handling |

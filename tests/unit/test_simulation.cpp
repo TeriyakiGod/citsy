@@ -621,3 +621,238 @@ TEST_CASE("sim: playable.bitsy fixture — talk, pick up, exit", "[engine][sim][
     CHECK(engine.avatar_x() == 0);
     CHECK(engine.avatar_y() == 8);
 }
+
+// ===========================================================================
+// Inventory, variables, conditionals, endings (Phase 2)
+// ===========================================================================
+
+TEST_CASE("sim: picking up an item increments inventory", "[engine][sim][inventory]") {
+    auto src = bitsy_game({
+        std::string(kPal),
+        room0(empty_grid(), "ITM 0 5,4\n"),
+        avatar_at(4, 4),
+        std::string(kKeyArt),
+    });
+    citsy::Engine engine(src);
+    citsy::MockHost host;
+    engine.start(host);
+    CHECK(engine.item_count("0") == 0);
+    CHECK(engine.item_count("key") == 0);
+
+    tap(engine, host, citsy::Button::Right);
+    CHECK(engine.item_count("0") == 1);
+    CHECK(engine.item_count("key") == 1);
+}
+
+TEST_CASE("sim: dialog can give and take items", "[engine][sim][inventory]") {
+    auto src = bitsy_game({
+        std::string(kPal),
+        room0(empty_grid()),
+        avatar_at(4, 4),
+        std::string(kNpcArt) + "POS 0 5,4\nDLG DLG_NPC\n",
+        std::string(kKeyArt),
+        R"(DLG DLG_NPC
+{item "0" 1}
+"Here, take this."
+)",
+    });
+    citsy::Engine engine(src);
+    citsy::MockHost host;
+    engine.start(host);
+    tap(engine, host, citsy::Button::Right);
+    CHECK(engine.dialog_line() == "Here, take this.");
+    CHECK(engine.item_count("0") == 1);
+    press_ok(engine, host);
+    CHECK(engine.item_count("key") == 1);
+}
+
+TEST_CASE("sim: branching dialog depends on item count", "[engine][sim][dialog]") {
+    auto src = bitsy_game({
+        std::string(kPal),
+        room0(empty_grid(), "ITM 0 5,4\n"),
+        avatar_at(4, 4),
+        std::string(kNpcArt) + "POS 0 7,4\nDLG DLG_NPC\n",
+        std::string(kKeyArt),
+        R"(DLG DLG_NPC
+{
+  - {item "0"} > 0 ?
+    "You have the key."
+  - else ?
+    "The door is locked."
+}
+)",
+    });
+    citsy::Engine engine(src);
+    citsy::MockHost host;
+    engine.start(host);
+
+    tap(engine, host, citsy::Button::Right);  // pick up key at 5,4
+    CHECK(engine.item_count("0") == 1);
+    if (engine.dialog_active()) press_ok(engine, host);
+
+    tap(engine, host, citsy::Button::Right);  // 6,4
+    tap(engine, host, citsy::Button::Right);  // bump npc at 7,4
+    CHECK(engine.dialog_active());
+    CHECK(engine.dialog_line() == "You have the key.");
+}
+
+TEST_CASE("sim: variable assignment persists across talks", "[engine][sim][dialog]") {
+    auto src = bitsy_game({
+        std::string(kPal),
+        room0(empty_grid()),
+        avatar_at(4, 4),
+        std::string(kNpcArt) + "POS 0 5,4\nDLG DLG_NPC\n",
+        "VAR talks\n0\n",
+        R"(DLG DLG_NPC
+{talks = talks + 1}
+"Talked {print talks} times."
+)",
+    });
+    citsy::Engine engine(src);
+    citsy::MockHost host;
+    engine.start(host);
+    CHECK(engine.variable_value("talks") == "0");
+
+    tap(engine, host, citsy::Button::Right);
+    CHECK(engine.dialog_line() == "Talked 1 times.");
+    CHECK(engine.variable_value("talks") == "1");
+    press_ok(engine, host);
+
+    tap(engine, host, citsy::Button::Right);
+    CHECK(engine.dialog_line() == "Talked 2 times.");
+    CHECK(engine.variable_value("talks") == "2");
+}
+
+TEST_CASE("sim: sequence dialog changes on each visit", "[engine][sim][dialog]") {
+    auto src = bitsy_game({
+        std::string(kPal),
+        room0(empty_grid()),
+        avatar_at(4, 4),
+        std::string(kNpcArt) + "POS 0 5,4\nDLG DLG_NPC\n",
+        R"(DLG DLG_NPC
+{sequence
+  - "first"
+  - "second"
+}
+)",
+    });
+    citsy::Engine engine(src);
+    citsy::MockHost host;
+    engine.start(host);
+
+    tap(engine, host, citsy::Button::Right);
+    CHECK(engine.dialog_line() == "first");
+    press_ok(engine, host);
+
+    tap(engine, host, citsy::Button::Right);
+    CHECK(engine.dialog_line() == "second");
+    press_ok(engine, host);
+
+    tap(engine, host, citsy::Button::Right);
+    CHECK(engine.dialog_line() == "second");
+}
+
+TEST_CASE("sim: ending tile shows text then stops the game", "[engine][sim][ending]") {
+    auto src = bitsy_game({
+        std::string(kPal),
+        room0(empty_grid(), "END 0 5,4\n"),
+        avatar_at(4, 4),
+        "END 0\nYou win!\nNAME good\n",
+    });
+    citsy::Engine engine(src);
+    citsy::MockHost host;
+    engine.start(host);
+    REQUIRE(engine.is_running());
+
+    tap(engine, host, citsy::Button::Right);
+    CHECK(engine.avatar_x() == 5);
+    CHECK(engine.dialog_active());
+    CHECK(engine.dialog_line() == "You win!");
+    CHECK(engine.is_running());
+
+    press_ok(engine, host);
+    CHECK_FALSE(engine.dialog_active());
+    CHECK_FALSE(engine.is_running());
+}
+
+TEST_CASE("sim: {end} in dialog stops the game after the box closes", "[engine][sim][ending]") {
+    auto src = bitsy_game({
+        std::string(kPal),
+        room0(empty_grid()),
+        avatar_at(4, 4),
+        std::string(kNpcArt) + "POS 0 5,4\nDLG DLG_NPC\n",
+        R"(DLG DLG_NPC
+"Farewell."
+{end}
+)",
+    });
+    citsy::Engine engine(src);
+    citsy::MockHost host;
+    engine.start(host);
+    tap(engine, host, citsy::Button::Right);
+    CHECK(engine.dialog_line() == "Farewell.");
+    CHECK(engine.is_running());
+    press_ok(engine, host);
+    CHECK_FALSE(engine.is_running());
+}
+
+TEST_CASE("sim: {exit} in dialog warps after the box closes", "[engine][sim][dialog]") {
+    auto src = bitsy_game({
+        std::string(kPal),
+        room0(empty_grid()),
+        "ROOM 1\n" + empty_grid() + "PAL 0\n",
+        avatar_at(4, 4),
+        std::string(kNpcArt) + "POS 0 5,4\nDLG DLG_NPC\n",
+        R"(DLG DLG_NPC
+"Off you go."
+{exit "1" 3 3}
+)",
+    });
+    citsy::Engine engine(src);
+    citsy::MockHost host;
+    engine.start(host);
+    tap(engine, host, citsy::Button::Right);
+    CHECK(engine.current_room_id() == "0");
+    CHECK(engine.dialog_line() == "Off you go.");
+    press_ok(engine, host);
+    CHECK(engine.current_room_id() == "1");
+    CHECK(engine.avatar_x() == 3);
+    CHECK(engine.avatar_y() == 3);
+}
+
+TEST_CASE("sim: fixture scripted.bitsy — key, gate, ending", "[engine][sim][fixture]") {
+    auto text = load_fixture("scripted.bitsy");
+    citsy::Engine engine(text);
+    citsy::MockHost host;
+    engine.start(host);
+
+    CHECK(engine.variable_value("met") == "0");
+    CHECK(engine.item_count("0") == 0);
+
+    // Talk to the guard at (5,4) without a key.
+    tap(engine, host, citsy::Button::Right);
+    CHECK(engine.dialog_line() == "I need a key.");
+    press_ok(engine, host);
+    CHECK(engine.variable_value("met") == "1");
+
+    // Pick up the key at (4,2).
+    tap(engine, host, citsy::Button::Up);
+    tap(engine, host, citsy::Button::Up);
+    CHECK(engine.avatar_y() == 2);
+    CHECK(engine.item_count("0") == 1);
+    CHECK(engine.dialog_line() == "Got a key.");
+    press_ok(engine, host);
+
+    // Talk to the guard again.
+    tap(engine, host, citsy::Button::Down);
+    tap(engine, host, citsy::Button::Down);
+    tap(engine, host, citsy::Button::Right);
+    CHECK(engine.dialog_line() == "Go on through.");
+    press_ok(engine, host);
+
+    // Walk left onto the ending at (3,4).
+    tap(engine, host, citsy::Button::Left);
+    CHECK(engine.dialog_line() == "You found the way out.");
+    press_ok(engine, host);
+    CHECK_FALSE(engine.is_running());
+}

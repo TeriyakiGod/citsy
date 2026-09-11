@@ -330,11 +330,11 @@ ITM 0 4,4
 ITM 0 5,3 DLG DLG_special
 ```
 
-### Runtime behavior (Phase 1)
+### Runtime behavior
 
-- Avatar walks onto an item to pick it up and show its dialog
-- The item is removed from the room so it is no longer drawn
-- Inventory counts and `{item}` give/take scripts are Phase 2
+- Avatar walks onto an item to pick it up: inventory count for that item id increases by 1, then its dialog plays
+- After the dialog closes, the item is removed from the room so it is no longer drawn
+- Dialog scripts can `{item "id"}` (read) or `{item "id" n}` (set count) by id or `NAME`
 
 ---
 
@@ -446,7 +446,7 @@ Links a tile in a room to an ending definition.
 END 0 8,0
 ```
 
-When the avatar steps on tile `(x, y)`, the game triggers ending `ending_id` and displays its text.
+When the avatar steps on tile `(x, y)`, the game plays ending `ending_id`'s text as dialog and then stops (`Engine::is_running()` becomes false). `{print}` / `{say}` in ending text are evaluated like other dialog.
 
 > **Note:** `END` is overloaded in the file format. As a **room sub-key**, it defines a tile trigger (`EndingRef`). As a **top-level segment**, it defines the ending message (`Ending`). The parser distinguishes them by context.
 
@@ -473,15 +473,16 @@ Multiline content is stored with newline separators. The script may include:
 
 | Feature | Example syntax | Status in citsy |
 |---|---|---|
-| Text lines | `"Hello!"` | Linear pages (Phase 1) |
-| Variable interpolation | `{print name}` | Planned (Phase 2) |
-| Assignment | `{score = 5}` | Planned (Phase 2) |
-| Conditionals | `{score}?` … `{/}` | Planned (Phase 2) |
-| Item actions | `{itemId}` give/take | Planned (Phase 2) |
-| Exit triggers | `{exitRoomId}` | Planned (Phase 2) |
-| Endings | `{endingId}` | Planned (Phase 2) |
+| Text lines | `"Hello!"` | Yes |
+| Variable interpolation | `{print name}` | Yes |
+| Assignment | `{score = 5}` | Yes |
+| Conditionals | `{ - score == 1 ? … - else ? … }` | Yes |
+| Lists | `{sequence …}`, `{cycle …}`, `{shuffle …}` | Yes |
+| Item actions | `{item "key"}`, `{item "key" n}` | Yes |
+| Exit triggers | `{exit "room" x y}` | Yes |
+| Endings | room `END` tiles; `{end}` in dialog | Yes |
 
-citsy stores dialog content as raw text. Phase 1 plays quoted strings (and `{p}` / `{br}`) as sequential pages. The full script interpreter (`src/dialog/`, Phase 2) will evaluate remaining tags at runtime.
+citsy stores dialog content as raw text and evaluates it at runtime (`src/dialog/script.cpp`). See [Dialog scripting](dialog.md).
 
 ---
 
