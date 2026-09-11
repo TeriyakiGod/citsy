@@ -213,14 +213,13 @@ TEST_CASE("font: textbox renders letter pixels", "[font][phase3]") {
     auto f = citsy::default_font();
     citsy::TextSpan sp;
     sp.text = "Hi";
-    sp.color = 2;
     citsy::TextboxLayout layout;
     layout.width = 104;
     layout.height = 32;
     auto pix = citsy::render_textbox(f, {sp}, layout);
     REQUIRE(pix.size() == 104 * 32);
     int ink = 0;
-    for (auto p : pix) if (p == 2) ++ink;
+    for (auto p : pix) if (p == citsy::kTextboxWhite) ++ink;
     CHECK(ink > 10);
 }
 

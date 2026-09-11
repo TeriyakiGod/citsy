@@ -90,6 +90,8 @@ struct Engine::Impl {
     DialogVM                   dlg;
     std::string                dialog_plain;
     std::vector<std::uint8_t>  textbox_pixels;
+    std::vector<std::vector<TextSpan>> textbox_pages_;
+    std::size_t                textbox_page_ = 0;
     double                     dialog_time_ms = 0;
     std::string                lock_key;
     bool                       lock_is_ending = false;
@@ -394,16 +396,24 @@ struct Engine::Impl {
         if (!dlg.active()) {
             textbox_pixels.clear();
             dialog_plain.clear();
+            textbox_pages_.clear();
+            textbox_page_ = 0;
             return;
         }
-        dialog_plain = dlg.plain_text();
         TextboxLayout layout;
         layout.width = kTextboxWidth;
         layout.height = kTextboxHeight;
         layout.rtl = game.text_direction == TextDirection::RightToLeft;
-        layout.show_arrow = true;
         layout.time_ms = dialog_time_ms;
-        textbox_pixels = render_textbox(font, dlg.spans(), layout);
+        textbox_pages_ = paginate_spans(font, dlg.spans(), layout);
+        if (textbox_pages_.empty()) textbox_pages_.emplace_back();
+        if (textbox_page_ >= textbox_pages_.size()) {
+            textbox_page_ = textbox_pages_.size() - 1;
+        }
+        const auto& page = textbox_pages_[textbox_page_];
+        dialog_plain = spans_to_plain(page);
+        layout.show_arrow = true;
+        textbox_pixels = render_textbox(font, page, layout);
     }
 
     [[nodiscard]] std::string_view dialog_line() const {
@@ -487,6 +497,8 @@ struct Engine::Impl {
         }
         dialog_plain.clear();
         textbox_pixels.clear();
+        textbox_pages_.clear();
+        textbox_page_ = 0;
         if (queued_script_exit) {
             Exit ext = *queued_script_exit;
             queued_script_exit.reset();
@@ -500,9 +512,12 @@ struct Engine::Impl {
         }
     }
 
-    void start_dialog(std::string source, std::function<void()> on_end) {
+    void start_dialog(std::string source, std::function<void()> on_end,
+                      std::string script_id = {}) {
         dialog_time_ms = 0;
-        dlg.start(std::move(source), make_world(), /*id*/ lock_key, std::move(on_end));
+        textbox_page_ = 0;
+        if (script_id.empty()) script_id = lock_key;
+        dlg.start(std::move(source), make_world(), std::move(script_id), std::move(on_end));
         if (!dlg.active()) {
             finish_dialog(false);
         } else {
@@ -512,6 +527,12 @@ struct Engine::Impl {
 
     void advance_dialog() {
         if (!dlg.active()) return;
+        if (textbox_page_ + 1 < textbox_pages_.size()) {
+            ++textbox_page_;
+            refresh_textbox();
+            return;
+        }
+        textbox_page_ = 0;
         if (!dlg.continue_page()) {
             finish_dialog(true);
         } else {
@@ -566,7 +587,7 @@ struct Engine::Impl {
         }
         lock_key = key;
         lock_is_ending = false;
-        start_dialog(std::move(pages_src), std::move(go));
+        start_dialog(std::move(pages_src), std::move(go), ext.dialog_id);
     }
 
     void trigger_ending(const std::string& ending_id, bool from_script) {
@@ -601,7 +622,8 @@ struct Engine::Impl {
             after();
             return;
         }
-        start_dialog(src.empty() ? std::string{" "} : std::move(src), std::move(after));
+        start_dialog(src.empty() ? std::string{" "} : std::move(src), std::move(after),
+                     ending_id);
     }
 
     void handle_item(int index) {
@@ -636,7 +658,7 @@ struct Engine::Impl {
             pickup();
             return;
         }
-        start_dialog(std::move(src), std::move(pickup));
+        start_dialog(std::move(src), std::move(pickup), dlg_id);
     }
 
     void handle_sprite(const Sprite& spr) {
@@ -644,7 +666,8 @@ struct Engine::Impl {
             auto it = game.blips.find(spr.blip_id);
             if (it != game.blips.end()) sound.play_blip(it->second, game);
         }
-        start_dialog(dialog_source(sprite_dialog_id(spr)), {});
+        const auto id = sprite_dialog_id(spr);
+        start_dialog(dialog_source(id), {}, id);
     }
 
     void try_move(Dir direction) {
@@ -739,10 +762,15 @@ struct Engine::Impl {
             textbox.pixels = std::span<const std::uint8_t>(textbox_pixels);
         }
 
+        std::vector<Color> present_palette = palette;
+        if (dlg.active()) {
+            install_textbox_colors(present_palette);
+        }
+
         host.present(
             gfx_mode,
             game.txt_mode == 1 ? TextMode::LoRez : TextMode::HiRez,
-            std::span<const Color>(palette),
+            std::span<const Color>(present_palette),
             std::span<const std::uint8_t>(video),
             std::span<const std::uint8_t>(map1),
             std::span<const std::uint8_t>(map2),
@@ -781,7 +809,7 @@ void Engine::start(Host& host) {
         impl_->narrating = true;
         impl_->start_dialog(impl_->game.title_dialog, [this] {
             impl_->narrating = false;
-        });
+        }, std::string(Game::kTitleDialogId));
     }
     host.on_engine_ready();
 }

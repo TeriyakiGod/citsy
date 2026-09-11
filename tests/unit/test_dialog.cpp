@@ -179,6 +179,26 @@ TEST_CASE("dialog: cycle wraps around", "[dialog][script]") {
     CHECK(citsy::run_dialog_script(script, w.bind()).pages == std::vector<std::string>{"a"});
 }
 
+TEST_CASE("dialog: cycle items may end with a question mark", "[dialog][script]") {
+    TestWorld w;
+    auto script = citsy::parse_dialog_script(R"({cycle
+  - this bottle world has everything we need
+  - soil, water, air, light
+  - if we left, could we survive?
+  - sometimes I wish I could find a crack in the glass
+})");
+    CHECK(citsy::run_dialog_script(script, w.bind()).pages ==
+          std::vector<std::string>{"this bottle world has everything we need"});
+    CHECK(citsy::run_dialog_script(script, w.bind()).pages ==
+          std::vector<std::string>{"soil, water, air, light"});
+    CHECK(citsy::run_dialog_script(script, w.bind()).pages ==
+          std::vector<std::string>{"if we left, could we survive?"});
+    CHECK(citsy::run_dialog_script(script, w.bind()).pages ==
+          std::vector<std::string>{"sometimes I wish I could find a crack in the glass"});
+    CHECK(citsy::run_dialog_script(script, w.bind()).pages ==
+          std::vector<std::string>{"this bottle world has everything we need"});
+}
+
 TEST_CASE("dialog: shuffle visits every item before repeating", "[dialog][script]") {
     TestWorld w;
     auto script = citsy::parse_dialog_script(R"({shuffle
@@ -243,4 +263,169 @@ TEST_CASE("dialog: item comparison in a nested branch", "[dialog][script]") {
     auto r2 = citsy::run_dialog_script(script, w.bind());
     REQUIRE(r2.pages.size() == 1);
     CHECK(r2.pages[0] == "thanks");
+}
+
+TEST_CASE("dialog: single newline in a list item is a line break", "[dialog][script]") {
+    TestWorld w;
+    auto r = run(R"({sequence
+  - hello
+    world
+})", w);
+    REQUIRE(r.pages.size() == 1);
+    CHECK(r.pages[0] == "hello\nworld");
+}
+
+TEST_CASE("dialog: nested branch inside sequence is one arm", "[dialog][script]") {
+    TestWorld w;
+    w.items["Spores"] = 2;
+    auto script = citsy::parse_dialog_script(R"({sequence
+  - first
+  - {
+      - {item "Spores"} < 6 ?
+        need water
+      - else ?
+        thanks
+    }
+})");
+    CHECK(citsy::run_dialog_script(script, w.bind()).pages ==
+          std::vector<std::string>{"first"});
+    CHECK(citsy::run_dialog_script(script, w.bind()).pages ==
+          std::vector<std::string>{"need water"});
+
+    w.items["Spores"] = 6;
+    CHECK(citsy::run_dialog_script(script, w.bind()).pages ==
+          std::vector<std::string>{"thanks"});
+}
+
+TEST_CASE("dialog: mossland gardener sequence", "[dialog][script]") {
+    TestWorld w;
+    w.items["Spores"] = 0;
+    constexpr std::string_view src = R"("""
+{sequence
+  - I tend the moss
+    
+    would you help me {clr3}water {printItem "Can"}{clr3} the spores?
+  - if we take care, the moss will feed our children's children
+  - if we are greedy, we will deplete the soil and starve
+  - the spores will go dormant, awaiting better conditions
+    someday they will reawaken and grow again
+    the moss will survive our carelessness, but we may not
+  - {
+      - {item "Spores"} < 6 ?
+        the spores need watering
+      - else ?
+        thanks for your help - you did a {wvy}moss-some{wvy} job
+    }
+}
+""")";
+    auto script = citsy::parse_dialog_script(src);
+
+    auto p0 = citsy::run_dialog_script(script, w.bind());
+    REQUIRE(p0.pages.size() == 2);
+    CHECK(p0.pages[0] == "I tend the moss");
+    CHECK(p0.pages[1].find("would you help me") != std::string::npos);
+    CHECK(p0.pages[1].find("water") != std::string::npos);
+    CHECK(p0.pages[1].find("the spores?") != std::string::npos);
+
+    CHECK(citsy::run_dialog_script(script, w.bind()).pages ==
+          std::vector<std::string>{
+              "if we take care, the moss will feed our children's children"});
+    CHECK(citsy::run_dialog_script(script, w.bind()).pages ==
+          std::vector<std::string>{
+              "if we are greedy, we will deplete the soil and starve"});
+
+    auto p3 = citsy::run_dialog_script(script, w.bind());
+    REQUIRE(p3.pages.size() == 1);
+    CHECK(p3.pages[0].find("the spores will go dormant") != std::string::npos);
+    CHECK(p3.pages[0].find("someday they will reawaken") != std::string::npos);
+    CHECK(p3.pages[0].find("the moss will survive") != std::string::npos);
+    CHECK(p3.pages[0].find('\n') != std::string::npos);
+
+    CHECK(citsy::run_dialog_script(script, w.bind()).pages ==
+          std::vector<std::string>{"the spores need watering"});
+
+    w.items["Spores"] = 6;
+    auto last = citsy::run_dialog_script(script, w.bind());
+    REQUIRE(last.pages.size() == 1);
+    CHECK(last.pages[0].find("moss-some") != std::string::npos);
+    CHECK(last.pages[0].find("thanks for your help") != std::string::npos);
+}
+
+TEST_CASE("dialog: gardener tags colour, printItem, and wavy", "[dialog][script]") {
+    TestWorld w;
+    citsy::Item can;
+    can.id = "1";
+    can.name = "Can";
+    can.frames.push_back({});
+    can.frames.back().fill(1);
+
+    auto world = w.bind();
+    world.find_item = [&](std::string_view id) -> const citsy::Item* {
+        return id == "Can" || id == "1" ? &can : nullptr;
+    };
+
+    citsy::DialogVM vm;
+    vm.start(R"("""
+{sequence
+  - I tend the moss
+    
+    would you help me {clr3}water {printItem "Can"}{clr3} the spores?
+}
+""")", world, "SPR_1");
+    CHECK(vm.plain_text() == "I tend the moss");
+    REQUIRE(vm.continue_page());
+
+    bool saw_water_clr3 = false;
+    bool saw_can = false;
+    bool saw_spores_default = false;
+    for (const auto& sp : vm.spans()) {
+        if (sp.is_drawing) {
+            saw_can = true;
+            continue;
+        }
+        if (sp.text.find("water") != std::string::npos) {
+            CHECK(sp.color == 3);
+            saw_water_clr3 = true;
+        }
+        if (sp.text.find("spores") != std::string::npos) {
+            CHECK(sp.color == -1);
+            saw_spores_default = true;
+        }
+    }
+    CHECK(saw_water_clr3);
+    CHECK(saw_can);
+    CHECK(saw_spores_default);
+
+    w.items["Spores"] = 6;
+    vm.start(R"("""
+{sequence
+  - skip
+  - {
+      - {item "Spores"} < 6 ?
+        need
+      - else ?
+        thanks for your help - you did a {wvy}moss-some{wvy} job
+    }
+}
+""")", world, "SPR_wvy");
+    CHECK(vm.plain_text() == "skip");
+    vm.start(R"("""
+{sequence
+  - skip
+  - {
+      - {item "Spores"} < 6 ?
+        need
+      - else ?
+        thanks for your help - you did a {wvy}moss-some{wvy} job
+    }
+}
+""")", world, "SPR_wvy");
+    bool saw_wavy = false;
+    for (const auto& sp : vm.spans()) {
+        if (sp.text.find("moss-some") != std::string::npos) {
+            CHECK(sp.effects == citsy::GlyphFx::Wavy);
+            saw_wavy = true;
+        }
+    }
+    CHECK(saw_wavy);
 }

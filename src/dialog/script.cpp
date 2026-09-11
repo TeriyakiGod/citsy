@@ -99,6 +99,18 @@ std::size_t matching_brace(std::string_view s, std::size_t open) {
     return std::string_view::npos;
 }
 
+int brace_delta(std::string_view s) {
+    int d = 0;
+    bool in_str = false;
+    for (std::size_t i = 0; i < s.size(); ++i) {
+        if (s[i] == '"' && (i == 0 || s[i - 1] != '\\')) in_str = !in_str;
+        if (in_str) continue;
+        if (s[i] == '{') ++d;
+        else if (s[i] == '}') --d;
+    }
+    return d;
+}
+
 } // namespace
 
 void DialogVM::reset() {
@@ -109,7 +121,7 @@ void DialogVM::reset() {
     page_ready_ = false;
     list_serial_ = 0;
     spans_.clear();
-    fx_stack_.clear();
+    fx_bits_ = GlyphFx::None;
     color_stack_.clear();
     pending_.clear();
     on_end = {};
@@ -157,7 +169,7 @@ void DialogVM::emit_text(std::string_view text) {
     if (text.empty()) return;
     TextSpan sp;
     sp.text = std::string(text);
-    sp.effect = current_fx();
+    sp.effects = current_fx();
     sp.color = current_color();
     spans_.push_back(std::move(sp));
 }
@@ -337,6 +349,7 @@ void DialogVM::exec_chunk(std::string_view chunk, bool /*implicit_page*/) {
                 return;
             }
             i = j;
+            if (i < chunk.size() && !spans_.empty()) emit_text("\n");
             continue;
         }
         const std::size_t start = i;
@@ -352,11 +365,10 @@ bool DialogVM::exec_tag(std::string_view tag) {
     tag = trim_sv(tag);
     if (tag.empty()) return false;
 
-    // Close-effect tags.
-    if (tag == "/wvy" || tag == "/shk" || tag == "/rbw") {
-        if (!fx_stack_.empty()) fx_stack_.pop_back();
-        return true;
-    }
+    // Close-effect tags clear only that bit so other effects stay on.
+    if (tag == "/wvy") { fx_bits_ = static_cast<std::uint8_t>(fx_bits_ & ~GlyphFx::Wavy); return true; }
+    if (tag == "/shk") { fx_bits_ = static_cast<std::uint8_t>(fx_bits_ & ~GlyphFx::Shaky); return true; }
+    if (tag == "/rbw") { fx_bits_ = static_cast<std::uint8_t>(fx_bits_ & ~GlyphFx::Rainbow); return true; }
     if (tag == "/clr" || tag == "/clr1" || tag == "/clr2" || tag == "/clr3") {
         if (!color_stack_.empty()) color_stack_.pop_back();
         return true;
@@ -371,14 +383,7 @@ bool DialogVM::exec_tag(std::string_view tag) {
         return true;
     }
 
-    auto toggle_fx = [&](GlyphEffect e) {
-        auto it = std::find(fx_stack_.rbegin(), fx_stack_.rend(), e);
-        if (it != fx_stack_.rend()) {
-            fx_stack_.erase(std::next(it).base());
-        } else {
-            fx_stack_.push_back(e);
-        }
-    };
+    auto toggle_fx = [&](std::uint8_t bit) { fx_bits_ ^= bit; };
     auto toggle_color = [&](int c) {
         auto it = std::find(color_stack_.rbegin(), color_stack_.rend(), c);
         if (it != color_stack_.rend()) {
@@ -388,9 +393,9 @@ bool DialogVM::exec_tag(std::string_view tag) {
         }
     };
 
-    if (tag == "wvy") { toggle_fx(GlyphEffect::Wavy); return true; }
-    if (tag == "shk") { toggle_fx(GlyphEffect::Shaky); return true; }
-    if (tag == "rbw") { toggle_fx(GlyphEffect::Rainbow); return true; }
+    if (tag == "wvy") { toggle_fx(GlyphFx::Wavy); return true; }
+    if (tag == "shk") { toggle_fx(GlyphFx::Shaky); return true; }
+    if (tag == "rbw") { toggle_fx(GlyphFx::Rainbow); return true; }
     if (tag == "clr" || tag == "clr1") { toggle_color(1); return true; }
     if (tag == "clr2") { toggle_color(2); return true; }
     if (tag == "clr3") { toggle_color(3); return true; }
@@ -465,16 +470,20 @@ void DialogVM::exec_block(std::string_view inner) {
     enum class Mode { Sequence, Cycle, Shuffle, Conditional };
     Mode mode = Mode::Sequence;
     std::string_view body = inner;
+    bool named_list = false;
 
     auto ident = first_ident(inner);
     if (ident == "sequence") {
         mode = Mode::Sequence;
+        named_list = true;
         body = trim_sv(inner.substr(ident.size()));
     } else if (ident == "cycle") {
         mode = Mode::Cycle;
+        named_list = true;
         body = trim_sv(inner.substr(ident.size()));
     } else if (ident == "shuffle") {
         mode = Mode::Shuffle;
+        named_list = true;
         body = trim_sv(inner.substr(ident.size()));
     }
 
@@ -492,6 +501,7 @@ void DialogVM::exec_block(std::string_view inner) {
     std::string line;
     Item cur;
     bool in_item = false;
+    int nest = 0;
     auto flush = [&] {
         if (in_item) {
             cur.body = std::string(trim_sv(cur.body));
@@ -499,32 +509,38 @@ void DialogVM::exec_block(std::string_view inner) {
             cur = {};
         }
         in_item = false;
+        nest = 0;
     };
 
     while (std::getline(iss, line)) {
         auto t = trim_sv(line);
-        if (t.starts_with("-")) {
+        if (nest == 0 && t.starts_with("-")) {
             flush();
             in_item = true;
             auto rest = trim_sv(t.substr(1));
-            // `cond ?` prefix
+            // `cond ?` is only for unnamed branch lists. Sequence / cycle /
+            // shuffle items are plain text, including English questions.
             auto q = rest.find('?');
-            if (first_ident(rest) == "else") {
+            if (!named_list && first_ident(rest) == "else") {
                 cur.is_else = true;
                 any_cond = true;
                 auto after = trim_sv(rest.substr(4));
                 if (!after.empty() && after[0] == '?') after = trim_sv(after.substr(1));
                 cur.body = std::string(after) + "\n";
-            } else if (q != std::string_view::npos) {
+            } else if (!named_list && q != std::string_view::npos) {
                 cur.condition = std::string(trim_sv(rest.substr(0, q)));
                 cur.body = std::string(trim_sv(rest.substr(q + 1))) + "\n";
                 any_cond = true;
             } else {
                 cur.body = std::string(rest) + "\n";
             }
+            nest += brace_delta(rest);
+            if (nest < 0) nest = 0;
         } else if (in_item) {
             cur.body += line;
             cur.body += '\n';
+            nest += brace_delta(line);
+            if (nest < 0) nest = 0;
         } else if (!t.empty()) {
             // Bare statements inside `{ a = 1 \n "hi" }`
             exec_chunk(t, false);
@@ -534,7 +550,7 @@ void DialogVM::exec_block(std::string_view inner) {
 
     if (items.empty()) return;
 
-    if (any_cond) mode = Mode::Conditional;
+    if (any_cond && !named_list) mode = Mode::Conditional;
 
     int chosen = -1;
     if (mode == Mode::Conditional) {

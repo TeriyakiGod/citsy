@@ -2,7 +2,7 @@
 
 Bitsy dialog is a small programming language, not just displayed text. citsy evaluates `DLG` and `END` source at runtime (`src/dialog/script.cpp`) against the engine's variables and inventory.
 
-This is a compatibility subset of the Bitsy 7+ script language. Visual effects (`{wvy}`, `{shk}`, `{clr3}`, `{printItem}`, …) parse and run as no-ops until fonts land in Phase 3.
+This is a compatibility subset of the Bitsy 7+ script language.
 
 ---
 
@@ -14,8 +14,29 @@ This is a compatibility subset of the Bitsy 7+ script language. Visual effects (
 | `{p}` / `{pg}` | New page |
 | `{br}` | Newline on the current page |
 | Blank line inside a list item or `"""` block | New page |
+| Text that does not fit the 104×32 box | Extra **screens** (`Ok` advances) |
 
-Unquoted text (common in lists) is one page unless a blank line or `{p}` splits it.
+Unquoted text (common in lists) is one page unless a blank line or `{p}` splits it. A line that is too long **wraps whole words** onto the next row of the same box. Words are never split. If the box is full, leftover words start the next screen. `{br}` is an explicit newline.
+
+---
+
+## Textbox look
+
+The dialog box is always a black rectangle (`kTextboxBlack`). Glyphs are white (`kTextboxWhite`) unless a colour tag or `{rbw}` is active. While dialog is open the engine installs those colours (and 16 rainbow hues at `kTextboxRainbow0`) into the palette passed to `present()`, so hosts can index the textbox buffer without a special case.
+
+## Text effects
+
+Tags combine: `{wvy}{rbw}hello` is both wavy and rainbow. A close tag (`{/wvy}`) clears only that bit.
+
+| Tag | Effect |
+|---|---|
+| `{wvy}` / `{/wvy}` | Vertical sine offset (animated) |
+| `{shk}` / `{/shk}` | Jitter offset (animated) |
+| `{rbw}` / `{/rbw}` | Horizontal rainbow gradient that scrolls right |
+| `{clr}` / `{clr1}` / `{clr2}` / `{clr3}` | Ink uses palette index 1, 2, or 3 |
+| `{clr n}` | Ink uses palette index `n` |
+
+Rainbow wins over `{clr}` when both are on. `{rbw}` is a per-pixel hue from the glyph's layout `x` and `time_ms`.
 
 ---
 

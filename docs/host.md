@@ -44,7 +44,7 @@ The engine maintains fixed logical buffers. The host reads them after each updat
 | `Map2` | 16 × 16 | Overlay tilemap (sprites / items) |
 | `Sound1`, `Sound2` | — | Channel frequency, volume, pulse, duration |
 
-Color indices refer to the active palette passed into `present()`. Hosts should not assume a fixed 3-color palette — extended palettes (`COL n`) are supported.
+Color indices refer to the active palette passed into `present()`. Hosts should not assume a fixed 3-color palette — extended palettes (`COL n`) are supported. While a dialog is open the engine also installs true black, white, and rainbow hues at `kTextboxBlack`, `kTextboxWhite`, and `kTextboxRainbow0` so textbox pixels can be decoded independently of the room palette.
 
 ## Interface
 

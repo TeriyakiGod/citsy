@@ -62,7 +62,8 @@ tests/
 │   ├── test_engine.cpp     # Engine lifecycle and MockHost integration
 │   ├── test_dialog.cpp     # Dialog page extraction and script interpreter
 │   ├── test_simulation.cpp # Movement, collision, render, exits, dialog
-│   └── test_phase3.cpp     # Animation, fonts, RTL, sound, transitions, dialog VM
+│   ├── test_phase3.cpp     # Animation, fonts, RTL, sound, transitions, dialog VM
+│   └── test_textbox.cpp    # Textbox colours, effects, wrap, pagination
 └── data/
     ├── minimal.bitsy       # Full game with all entity types
     ├── animated.bitsy      # Multi-frame tile animation
@@ -80,6 +81,7 @@ tests/
 | `test_dialog.cpp` | `[dialog]`, `[script]` | Page extraction and script evaluation (variables, lists, items, `{end}`/`{exit}`) |
 | `test_simulation.cpp` | `[engine]`, `[sim]`, `[render]`, `[dialog]`, `[fixture]` | Movement, walls, map/video compose, sprite/item drawing, exits, linear dialog |
 | `test_phase3.cpp` | `[phase3]`, `[font]`, `[sound]`, `[transition]`, `[inventory]`, `[dialog]` | Animation, fonts, RTL, blips/tunes, `{item}`/`{property}`, titles, 8.15 extras |
+| `test_textbox.cpp` | `[textbox]`, `[font]`, `[dialog]`, `[engine]`, `[rbw]`, `[fx]`, `[wrap]`, `[page]` | Black/white textbox, `{clr}`/`{rbw}`, combinable effects, whole-word wrap, multi-screen overflow, `{cycle}` |
 
 As of Phase 3, the suite covers parser, simulation, dialog scripting, fonts, sound, and transitions.
 

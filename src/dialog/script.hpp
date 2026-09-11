@@ -106,7 +106,7 @@ private:
 
     DialogWorld world_;
     std::vector<TextSpan> spans_;
-    std::vector<GlyphEffect> fx_stack_;
+    std::uint8_t fx_bits_ = GlyphFx::None;
     std::vector<int> color_stack_;
     std::string pending_;
 
@@ -122,11 +122,9 @@ private:
     DialogValue call_func(std::string_view name, const std::vector<std::string>& args,
                           bool as_statement);
 
-    [[nodiscard]] GlyphEffect current_fx() const {
-        return fx_stack_.empty() ? GlyphEffect::None : fx_stack_.back();
-    }
+    [[nodiscard]] std::uint8_t current_fx() const { return fx_bits_; }
     [[nodiscard]] int current_color() const {
-        return color_stack_.empty() ? 2 : color_stack_.back();
+        return color_stack_.empty() ? -1 : color_stack_.back();
     }
 };
 

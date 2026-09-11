@@ -73,6 +73,7 @@ if(CITSY_BUILD_TESTS)
         tests/unit/test_dialog.cpp
         tests/unit/test_simulation.cpp
         tests/unit/test_phase3.cpp
+        tests/unit/test_textbox.cpp
     )
 
     target_link_libraries(citsy_tests

@@ -321,67 +321,148 @@ std::string spans_to_plain(const std::vector<TextSpan>& spans) {
     return out;
 }
 
-std::vector<std::uint8_t> render_textbox(
+namespace {
+
+Color hue_to_rgb(double h) {
+    h = h - std::floor(h);
+    const double x = 1.0 - std::abs(std::fmod(h * 6.0, 2.0) - 1.0);
+    double r = 0, g = 0, b = 0;
+    const int sextant = static_cast<int>(h * 6.0) % 6;
+    switch (sextant) {
+        case 0: r = 1; g = x; b = 0; break;
+        case 1: r = x; g = 1; b = 0; break;
+        case 2: r = 0; g = 1; b = x; break;
+        case 3: r = 0; g = x; b = 1; break;
+        case 4: r = x; g = 0; b = 1; break;
+        default: r = 1; g = 0; b = x; break;
+    }
+    return Color{
+        static_cast<std::uint8_t>(r * 255.0 + 0.5),
+        static_cast<std::uint8_t>(g * 255.0 + 0.5),
+        static_cast<std::uint8_t>(b * 255.0 + 0.5),
+    };
+}
+
+struct Cursor {
+    int cx = 0;
+    int cy = 0;
+    int line_h = 8;
+    int page = 0;
+};
+
+int max_x_of(const TextboxLayout& layout) {
+    return layout.width - layout.margin - 1;
+}
+
+int max_y_of(const TextboxLayout& layout) {
+    return layout.height - layout.margin - 1;
+}
+
+/// Advance to the next line. Returns true if that overflowed onto a new page.
+bool newline(Cursor& c, const TextboxLayout& layout, int font_h, bool paginate) {
+    const int next = c.cy + c.line_h + 1;
+    if (next + font_h > max_y_of(layout)) {
+        if (paginate) {
+            ++c.page;
+            c.cx = layout.margin;
+            c.cy = layout.margin;
+            c.line_h = font_h;
+            return true;
+        }
+    }
+    c.cx = layout.margin;
+    c.cy = next;
+    c.line_h = font_h;
+    return false;
+}
+
+bool is_wrap_space(char c) {
+    return c == ' ' || c == '\t';
+}
+
+int measure_word(const BitsyFont& font, std::string_view s) {
+    int w = 0;
+    while (!s.empty() && s.front() != '\n' && !is_wrap_space(s.front())) {
+        w += font.glyph(next_codepoint(s)).spacing;
+    }
+    return w;
+}
+
+/// Wrap to the next row (and the next screen if the box is full) when @p need
+/// does not fit on this row. Does not wrap at the start of a row, so a single
+/// oversized word is not pulled apart until glyphs are placed one by one.
+void wrap_if_needed(Cursor& c, int need, const TextboxLayout& layout, int font_h,
+                    bool paginate, bool* new_page = nullptr) {
+    if (c.cx + need > max_x_of(layout) && c.cx > layout.margin) {
+        const bool np = newline(c, layout, font_h, paginate);
+        if (new_page) *new_page = np;
+    }
+}
+
+void append_run(std::vector<TextSpan>& page, const TextSpan& proto, std::string ch) {
+    if (ch.empty()) return;
+    if (!page.empty() && !page.back().is_drawing &&
+        page.back().effects == proto.effects && page.back().color == proto.color &&
+        ch != "\n" && page.back().text != "\n" &&
+        (page.back().text.empty() || page.back().text.back() != '\n')) {
+        page.back().text += ch;
+        return;
+    }
+    TextSpan sp;
+    sp.text = std::move(ch);
+    sp.effects = proto.effects;
+    sp.color = proto.color;
+    page.push_back(std::move(sp));
+}
+
+} // namespace
+
+void install_textbox_colors(std::vector<Color>& pal) {
+    if (pal.size() < 256) pal.resize(256, Color{0, 0, 0});
+    pal[kTextboxBlack] = Color{0, 0, 0};
+    pal[kTextboxWhite] = Color{255, 255, 255};
+    for (int i = 0; i < kTextboxRainbowCount; ++i) {
+        pal[static_cast<std::size_t>(kTextboxRainbow0 + i)] =
+            hue_to_rgb(static_cast<double>(i) / kTextboxRainbowCount);
+    }
+}
+
+std::uint8_t rainbow_index(int x, double time_ms) {
+    // Horizontal gradient that scrolls right: hue(x, t) = fract(x/8 - t/400).
+    double phase = static_cast<double>(x) / 8.0 - time_ms / 400.0;
+    phase = phase - std::floor(phase);
+    int idx = static_cast<int>(phase * kTextboxRainbowCount);
+    if (idx < 0) idx = 0;
+    if (idx >= kTextboxRainbowCount) idx = kTextboxRainbowCount - 1;
+    return static_cast<std::uint8_t>(kTextboxRainbow0 + idx);
+}
+
+std::vector<std::vector<TextSpan>> paginate_spans(
     const BitsyFont& font,
     const std::vector<TextSpan>& spans,
     const TextboxLayout& layout)
 {
-    const int w = layout.width;
-    const int h = layout.height;
-    std::vector<std::uint8_t> buf(static_cast<std::size_t>(w * h), std::uint8_t{1});
-    if (w < 4 || h < 4) return buf;
+    std::vector<std::vector<TextSpan>> pages;
+    std::vector<TextSpan> cur;
+    Cursor c;
+    c.cx = layout.margin;
+    c.cy = layout.margin;
+    c.line_h = font.height;
 
-    for (int y = 1; y < h - 1; ++y) {
-        for (int x = 1; x < w - 1; ++x) {
-            buf[static_cast<std::size_t>(y * w + x)] = 0;
-        }
-    }
-
-    auto put = [&](int x, int y, std::uint8_t c) {
-        if (x <= 0 || y <= 0 || x >= w - 1 || y >= h - 1) return;
-        buf[static_cast<std::size_t>(y * w + x)] = c;
-    };
-
-    struct Placed {
-        int x, y, gw, gh;
-        const std::uint8_t* data;
-        std::uint8_t color;
-        GlyphEffect fx;
-        int index;
-        int offx, offy;
-    };
-    std::vector<Placed> placed;
-    int cx = layout.margin;
-    int cy = layout.margin;
-    int line_h = font.height;
-    int index = 0;
-    const int max_x = w - layout.margin - 1;
-
-    auto wrap = [&](int need) {
-        if (cx + need > max_x && cx > layout.margin) {
-            cx = layout.margin;
-            cy += line_h + 1;
-            line_h = font.height;
-        }
+    auto flush_page = [&] {
+        if (!cur.empty()) pages.push_back(std::move(cur));
+        cur = {};
     };
 
     for (const auto& sp : spans) {
         if (sp.is_drawing) {
-            wrap(kTileSize);
-            Placed p;
-            p.x = cx;
-            p.y = cy;
-            p.gw = kTileSize;
-            p.gh = kTileSize;
-            p.data = sp.drawing.data();
-            p.color = sp.drawing_color;
-            p.fx = GlyphEffect::None;
-            p.index = index++;
-            p.offx = 0;
-            p.offy = 0;
-            placed.push_back(p);
-            cx += kTileSize + 1;
-            line_h = std::max(line_h, kTileSize);
+            bool np = false;
+            wrap_if_needed(c, kTileSize, layout, font.height, true, &np);
+            if (np) flush_page();
+            TextSpan d = sp;
+            cur.push_back(std::move(d));
+            c.cx += kTileSize + 1;
+            c.line_h = std::max(c.line_h, kTileSize);
             continue;
         }
 
@@ -389,33 +470,147 @@ std::vector<std::uint8_t> render_textbox(
         while (!rest.empty()) {
             if (rest.front() == '\n') {
                 rest.remove_prefix(1);
-                cx = layout.margin;
-                cy += line_h + 1;
-                line_h = font.height;
+                const bool np = newline(c, layout, font.height, true);
+                if (np) flush_page();
+                else append_run(cur, sp, "\n");
                 continue;
             }
-            const char32_t cp = next_codepoint(rest);
-            const FontGlyph& g = font.glyph(cp);
-            wrap(g.spacing);
+            if (is_wrap_space(rest.front())) {
+                const std::string_view before = rest;
+                const char32_t cp = next_codepoint(rest);
+                const FontGlyph& g = font.glyph(cp);
+                if (c.cx + g.spacing > max_x_of(layout) && c.cx > layout.margin) {
+                    continue;
+                }
+                append_run(cur, sp, std::string(before.data(), before.size() - rest.size()));
+                c.cx += g.spacing;
+                c.line_h = std::max(c.line_h, g.height);
+                continue;
+            }
+            bool np = false;
+            wrap_if_needed(c, measure_word(font, rest), layout, font.height, true, &np);
+            if (np) flush_page();
+            while (!rest.empty() && rest.front() != '\n' && !is_wrap_space(rest.front())) {
+                const std::string_view before = rest;
+                const char32_t cp = next_codepoint(rest);
+                const FontGlyph& g = font.glyph(cp);
+                np = false;
+                wrap_if_needed(c, g.spacing, layout, font.height, true, &np);
+                if (np) flush_page();
+                append_run(cur, sp, std::string(before.data(), before.size() - rest.size()));
+                c.cx += g.spacing;
+                c.line_h = std::max(c.line_h, g.height);
+            }
+        }
+    }
+    flush_page();
+    return pages;
+}
+
+std::vector<std::uint8_t> render_textbox(
+    const BitsyFont& font,
+    const std::vector<TextSpan>& spans,
+    const TextboxLayout& layout)
+{
+    const int w = layout.width;
+    const int h = layout.height;
+    std::vector<std::uint8_t> buf(
+        static_cast<std::size_t>(std::max(0, w * h)), kTextboxBlack);
+    if (w < 4 || h < 4) return buf;
+
+    auto put = [&](int x, int y, std::uint8_t col) {
+        if (x < 0 || y < 0 || x >= w || y >= h) return;
+        buf[static_cast<std::size_t>(y * w + x)] = col;
+    };
+
+    struct Placed {
+        int x, y, gw, gh;
+        const std::uint8_t* data;
+        int color;
+        std::uint8_t effects;
+        int index;
+        int offx, offy;
+    };
+    std::vector<Placed> placed;
+    Cursor c;
+    c.cx = layout.margin;
+    c.cy = layout.margin;
+    c.line_h = font.height;
+    int index = 0;
+
+    for (const auto& sp : spans) {
+        if (sp.is_drawing) {
+            wrap_if_needed(c, kTileSize, layout, font.height, false);
             Placed p;
-            p.x = cx;
-            p.y = cy;
-            p.gw = g.width;
-            p.gh = g.height;
-            p.data = g.data.data();
-            p.color = static_cast<std::uint8_t>(sp.color);
-            p.fx = sp.effect;
+            p.x = c.cx;
+            p.y = c.cy;
+            p.gw = kTileSize;
+            p.gh = kTileSize;
+            p.data = sp.drawing.data();
+            p.color = sp.drawing_color;
+            p.effects = GlyphFx::None;
             p.index = index++;
-            p.offx = g.offset_x;
-            p.offy = g.offset_y;
+            p.offx = 0;
+            p.offy = 0;
             placed.push_back(p);
-            cx += g.spacing;
-            line_h = std::max(line_h, g.height);
+            c.cx += kTileSize + 1;
+            c.line_h = std::max(c.line_h, kTileSize);
+            continue;
+        }
+
+        std::string_view rest = sp.text;
+        while (!rest.empty()) {
+            if (rest.front() == '\n') {
+                rest.remove_prefix(1);
+                newline(c, layout, font.height, false);
+                continue;
+            }
+            if (is_wrap_space(rest.front())) {
+                const char32_t cp = next_codepoint(rest);
+                const FontGlyph& g = font.glyph(cp);
+                if (c.cx + g.spacing > max_x_of(layout) && c.cx > layout.margin) {
+                    continue;
+                }
+                Placed p;
+                p.x = c.cx;
+                p.y = c.cy;
+                p.gw = g.width;
+                p.gh = g.height;
+                p.data = g.data.data();
+                p.color = sp.color;
+                p.effects = sp.effects;
+                p.index = index++;
+                p.offx = g.offset_x;
+                p.offy = g.offset_y;
+                placed.push_back(p);
+                c.cx += g.spacing;
+                c.line_h = std::max(c.line_h, g.height);
+                continue;
+            }
+            wrap_if_needed(c, measure_word(font, rest), layout, font.height, false);
+            while (!rest.empty() && rest.front() != '\n' && !is_wrap_space(rest.front())) {
+                const char32_t cp = next_codepoint(rest);
+                const FontGlyph& g = font.glyph(cp);
+                wrap_if_needed(c, g.spacing, layout, font.height, false);
+                Placed p;
+                p.x = c.cx;
+                p.y = c.cy;
+                p.gw = g.width;
+                p.gh = g.height;
+                p.data = g.data.data();
+                p.color = sp.color;
+                p.effects = sp.effects;
+                p.index = index++;
+                p.offx = g.offset_x;
+                p.offy = g.offset_y;
+                placed.push_back(p);
+                c.cx += g.spacing;
+                c.line_h = std::max(c.line_h, g.height);
+            }
         }
     }
 
     if (layout.rtl) {
-        // Mirror each line's glyphs around the textbox centre.
         int line_start = 0;
         while (line_start < static_cast<int>(placed.size())) {
             const int ly = placed[static_cast<std::size_t>(line_start)].y;
@@ -444,33 +639,37 @@ std::vector<std::uint8_t> render_textbox(
     const double t = layout.time_ms;
     for (const auto& p : placed) {
         int dx = 0, dy = 0;
-        std::uint8_t color = p.color;
-        if (p.fx == GlyphEffect::Wavy) {
-            dy = static_cast<int>(std::sin((t * 0.012) + p.index * 0.7) * 2.0);
-        } else if (p.fx == GlyphEffect::Shaky) {
+        std::uint8_t color = p.color < 0
+            ? kTextboxWhite
+            : static_cast<std::uint8_t>(p.color);
+        if (p.effects & GlyphFx::Wavy) {
+            dy += static_cast<int>(std::sin((t * 0.012) + p.index * 0.7) * 2.0);
+        }
+        if (p.effects & GlyphFx::Shaky) {
             const int hsh = static_cast<int>(t / 40.0) + p.index * 13;
-            dx = (hsh % 3) - 1;
-            dy = ((hsh / 3) % 3) - 1;
-        } else if (p.fx == GlyphEffect::Rainbow) {
-            color = static_cast<std::uint8_t>(1 + (p.index % 3));
+            dx += (hsh % 3) - 1;
+            dy += ((hsh / 3) % 3) - 1;
         }
         if (!p.data) continue;
         for (int yy = 0; yy < p.gh; ++yy) {
             for (int xx = 0; xx < p.gw; ++xx) {
                 if (!p.data[static_cast<std::size_t>(yy * p.gw + xx)]) continue;
-                put(p.x + p.offx + xx + dx, p.y + p.offy + yy + dy, color);
+                std::uint8_t px = color;
+                if (p.effects & GlyphFx::Rainbow) {
+                    px = rainbow_index(p.x + xx, t);
+                }
+                put(p.x + p.offx + xx + dx, p.y + p.offy + yy + dy, px);
             }
         }
     }
 
     if (layout.show_arrow) {
-        // Continuation caret in the bottom-right margin.
         const int ax = w - 5;
         const int ay = h - 4;
-        put(ax, ay, 2);
-        put(ax - 1, ay - 1, 2);
-        put(ax + 1, ay - 1, 2);
-        put(ax, ay - 1, 2);
+        put(ax, ay, kTextboxWhite);
+        put(ax - 1, ay - 1, kTextboxWhite);
+        put(ax + 1, ay - 1, kTextboxWhite);
+        put(ax, ay - 1, kTextboxWhite);
     }
 
     return buf;
