@@ -1,9 +1,9 @@
 name: Deploy docs
 
+# The live site is published from the gh-pages branch (see docs/tools.md).
+# This workflow is a strict build check. GitHub Actions on this account cannot
+# currently deploy Pages because of a billing lock.
 on:
-  push:
-    branches: [main]
-  pull_request:
   workflow_dispatch:
 
 permissions:
