@@ -1,0 +1,107 @@
+site_name: citsy
+site_description: Headless C++ reimplementation of the Bitsy game engine
+site_url: https://teriyakigod.github.io/citsy/
+repo_url: https://github.com/TeriyakiGod/citsy
+repo_name: TeriyakiGod/citsy
+edit_uri: edit/main/docs/
+copyright: >
+  Not affiliated with Adam Le Doux or the official Bitsy project.
+  Inspired by the Bitsy System API.
+
+theme:
+  name: material
+  logo: assets/logo.svg
+  favicon: assets/favicon.svg
+  font:
+    text: Atkinson Hyperlegible
+    code: IBM Plex Mono
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.indexes
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.tracking
+    - navigation.top
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+    - content.tabs.link
+    - content.action.edit
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+  icon:
+    repo: fontawesome/brands/github
+
+extra_css:
+  - assets/extra.css
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/TeriyakiGod/citsy
+      name: citsy on GitHub
+
+exclude_docs: |
+  README.md
+  bitsy/README.md
+
+nav:
+  - Home: index.md
+  - Guide:
+      - Getting started: getting-started.md
+      - Building: tools.md
+      - Testing: testing.md
+      - Roadmap: roadmap.md
+  - Architecture:
+      - Overview: architecture.md
+      - Host API: host.md
+  - Bitsy:
+      - bitsy/index.md
+      - Data model: bitsy/data-model.md
+      - Dialog scripting: bitsy/dialog.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.snippets
+
+plugins:
+  - search

@@ -262,4 +262,4 @@ citsy targets import of standard `.bitsy` files from the Bitsy editor. Compatibi
 - [bitsy-parser](https://docs.rs/bitsy-parser) (Rust reference)
 - [bitsybox](https://github.com/le-doux/bitsybox) (historical SDL reference)
 
-See the [roadmap](../README.md#roadmap) for current phase status.
+See the [roadmap](roadmap.md) for current phase status.

@@ -2,3 +2,7 @@ build/
 .cache/
 *.o
 *.a
+site/
+.venv/
+.venv-docs/
+.pip-docs/

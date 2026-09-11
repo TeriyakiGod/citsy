@@ -1,5 +1,7 @@
 # Bitsy engine reference
 
+The documentation website is at **https://teriyakigod.github.io/citsy/bitsy/**.
+
 Documentation for the Bitsy game format and how citsy represents it. These guides describe the **data model** and file format that the engine parses and simulates — not the Bitsy editor UI.
 
 | Document | Contents |

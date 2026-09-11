@@ -712,4 +712,4 @@ See `tests/data/minimal.bitsy` for a complete game using every entity type. Afte
 | Blips / tunes | Yes | Channel params each frame |
 | Room avatar (`AVA`) | Yes | Yes |
 
-For the full compatibility matrix, see the [README compatibility table](../../README.md#file-format-compatibility).
+See the [roadmap](../roadmap.md#file-format-compatibility) for the project-level compatibility matrix.

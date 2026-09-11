@@ -64,14 +64,17 @@ This makes the engine embeddable in game jams, retro handhelds, test harnesses, 
 
 ## Documentation
 
-Detailed guides live in [`docs/`](docs/README.md):
+The documentation website is at **https://teriyakigod.github.io/citsy/** (source in [`docs/`](docs/README.md)):
 
 | Guide | Contents |
 |---|---|
+| [Getting started](docs/getting-started.md) | Clone, build, and embed the engine |
 | [Architecture](docs/architecture.md) | Layering, modules, data flow, memory blocks, Host interface |
+| [Host API](docs/host.md) | Buttons, buffers, `present()`, MockHost |
 | [Tools & build](docs/tools.md) | CMake options, compilers, dependencies, build targets |
 | [Testing](docs/testing.md) | Running tests, writing tests, fixtures, MockHost |
 | [Bitsy data model](docs/bitsy/data-model.md) | Entity types, properties, file syntax, relationships |
+| [Dialog scripting](docs/bitsy/dialog.md) | Variables, lists, inventory, `{end}` / `{exit}` |
 
 For agent-oriented conventions, see [AGENTS.md](AGENTS.md).
 

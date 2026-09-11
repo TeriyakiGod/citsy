@@ -209,3 +209,18 @@ cmake -B build \
   -DCITSY_BUILD_TESTS=OFF \
   -DCITSY_BUILD_EXAMPLES=OFF
 ```
+
+---
+
+## Documentation website
+
+Guides in `docs/` are published with [MkDocs Material](https://squidfunk.github.io/mkdocs-material/) to GitHub Pages.
+
+```bash
+python3 -m venv .venv-docs
+source .venv-docs/bin/activate
+pip install -r requirements-docs.txt
+mkdocs serve
+```
+
+Open http://127.0.0.1:8000. `mkdocs build --strict` is what CI runs before deploying https://teriyakigod.github.io/citsy/.
