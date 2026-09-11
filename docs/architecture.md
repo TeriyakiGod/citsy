@@ -23,7 +23,7 @@ citsy is a headless C++ reimplementation of the [Bitsy](https://bitsy.org) game 
                            ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                      citsy core (library)                   │
-│  Engine · Parser · Game model · Dialog · Render             │
+│  Engine · Parser · Game model · Dialog VM · Render · Font · Sound · Transition │
 │  - simulation step          - memory blocks (video/map/text)│
 │  - script execution         - palette & tile cache          │
 └──────────────────────────┬──────────────────────────────────┘
@@ -63,11 +63,11 @@ citsy/
 │   ├── parser/             # .bitsy lexer / parser  →  Game
 │   ├── model/              # Game, Room, Tile, Sprite, Item, …
 │   ├── engine/             # Simulation loop, movement, collision, exits
-│   ├── dialog/             # Script interpreter (variables, lists, inventory)
+│   ├── dialog/             # Script interpreter (variables, lists, {print*}, {ava}…)
 │   ├── render/             # Logical compositor → map1 / map2 / video
-│   ├── font/               # (planned) .bitsyfont rendering
-│   ├── sound/              # (planned) Channel parameter generation
-│   └── transition/         # (planned) Fade/wipe effects
+│   ├── font/               # .bitsyfont + built-in ascii_small
+│   ├── sound/              # Blip / tune → SoundChannel params
+│   └── transition/         # Fade / wave / tunnel / slide
 ├── backends/
 │   ├── mock/               # MockHost test double (header-only)
 │   ├── raylib/             # (planned) Reference desktop player
@@ -84,7 +84,7 @@ citsy/
 | Location | Visibility | Purpose |
 |---|---|---|
 | `include/citsy/` | Public | Stable consumer-facing headers |
-| `src/model/`, `src/parser/`, `src/dialog/`, `src/render/` | Internal | Game data, parser, dialog VM, compositor; tests may include directly |
+| `src/model/`, `src/parser/`, `src/dialog/`, `src/render/` | Internal | Game data, parser, linear dialog, compositor; tests may include directly |
 | `backends/mock/` | Backend | Test double; not linked into the core library |
 
 Embedders depend only on `include/citsy/`. Internal headers use paths like `"src/model/game.hpp"` and are not installed as part of the public ABI.
@@ -110,9 +110,11 @@ Strongly typed C++ structures mirroring Bitsy entities:
 | `Sprite` | `SPR` | Animated character; avatar is always id `A` |
 | `Item` | `ITM` | Collectible object |
 | `Room` | `ROOM` | 16×16 tile grid, items, exits, endings, palette |
-| `Dialogue` | `DLG` | Script text; evaluated by the dialog VM |
+| `Dialogue` | `DLG` | Script text; interpreter evaluates variables, lists, and actions |
 | `Variable` | `VAR` | Global number or string state |
 | `Ending` | `END` | End-game message |
+| `Tune` | `TUNE` | Looping two-channel melody |
+| `Blip` | `BLIP` | One-shot sound effect |
 
 `Game` aggregates these in hash maps keyed by entity id and provides helpers like `avatar()` and `start_room_id()`.
 
@@ -121,7 +123,7 @@ Strongly typed C++ structures mirroring Bitsy entities:
 The `Engine` class owns:
 
 1. A parsed `Game` (via pimpl)
-2. Runtime state (current room, avatar position, open dialog, remaining room items, inventory, variables)
+2. Runtime state (current room, avatar position, open dialog, remaining room items)
 3. Memory blocks the host reads each frame
 
 **Lifecycle:**
@@ -136,11 +138,11 @@ while (engine.is_running()) {
 }
 ```
 
-**Phase 2 behavior:** `update()` reads directional input, moves the avatar with wall and sprite collision, follows room exits, runs dialog scripts (variables, conditionals, inventory, `{end}` / `{exit}`), triggers ending tiles, and composes `map1` / `map2` / `video` for the current room.
+**Phase 3 behavior:** `update()` also advances flipbook animation (400 ms), plays exit transitions in `GraphicsMode::Video`, renders dialog glyphs (including RTL), and fills `sound1` / `sound2` from blips and room tunes.
 
 ### Dialog (`src/dialog/`)
 
-`parse_dialog_script` / `run_dialog_script` evaluate Bitsy DLG source against a `DialogWorld` (variables and inventory). Quoted strings are pages; `{p}` and blank lines in lists start a new page; `{br}` is a newline. See [Dialog scripting](bitsy/dialog.md).
+Phase 1 extracts linear text pages from `DLG` source (`extract_dialog_pages`). The script interpreter (`DialogVM`) evaluates `{print}`, assignments, conditionals, lists, inventory, `{ava}`/`{pal}`/`{tune}`/`{blip}`, `{exit}`, `{end}`, `{lock}`, `{printSprite}`/`{printTile}`/`{printItem}`, and text effects `{wvy}`/`{shk}`/`{rbw}`/`{clr}`.
 
 ### Render (`src/render/`)
 
@@ -150,15 +152,15 @@ while (engine.is_running()) {
 - `map2` — items, non-avatar sprites, then the avatar
 - `video` — 128×128 colour indices (tiles opaque, sprites/items transparent)
 
-The host still receives `GraphicsMode::Map` during gameplay. The composed video buffer is available so backends can blit pixels without a tile cache (the cache itself is Phase 3+).
+The host still receives `GraphicsMode::Map` during gameplay and `GraphicsMode::Video` during transitions. Animated drawings use the current flipbook frame (400 ms). `BGC` / transparent backgrounds are honoured when compositing.
 
-### Planned modules
+### Font, sound, and transitions
 
 | Module | Role |
 |---|---|
-| `font/` | Render `.bitsyfont` glyphs into the textbox buffer |
-| `sound/` | Generate two-channel square-wave parameters |
-| `transition/` | Room transition effects in video mode |
+| `font/` | Parse `.bitsyfont` (variable-width glyphs) and blit into the textbox; ships a built-in `ascii_small` 6×8 font. `TEXT_DIRECTION RTL` reverses line layout. |
+| `sound/` | Turns `BLIP` / `TUNE` data into `SoundChannel` frequency, volume, pulse, and duration. Hosts play the square waves. |
+| `transition/` | `fade_w`, `fade_b`, `wave`, `tunnel`, `slide_u`/`d`/`l`/`r` written into the 128×128 video buffer. |
 
 ---
 

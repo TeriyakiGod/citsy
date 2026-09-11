@@ -79,7 +79,7 @@ Multiple frames are separated by a `>` line on its own:
 00000000
 ```
 
-Animated tiles, sprites, and items cycle through frames at runtime. citsy stores all frames; animation timing is a simulation concern (Phase 3).
+Animated tiles, sprites, and items cycle through frames every 400 ms (Bitsy 8.15).
 
 ### Color mapping
 
@@ -95,7 +95,8 @@ The top-level container for all parsed game data.
 |---|---|---|---|
 | `version` | `GameVersion` | `0.0` | Parsed from `# BITSY VERSION major.minor` header |
 | `room_format` | `int` | `1` | `0` = legacy single-char rows; `1` = comma-separated |
-| `title` | `string` | `""` | Game title from top-level `NAME` directive |
+| `title` | `string` | `""` | First line of the file (Bitsy title dialog) or top-level `NAME` |
+| `title_dialog` | `string` | `""` | Full title script shown at game start |
 | `palettes` | `map<string, Palette>` | — | All color palettes, keyed by id |
 | `tiles` | `map<string, Tile>` | — | Tile definitions |
 | `sprites` | `map<string, Sprite>` | — | Sprite definitions |
@@ -116,18 +117,23 @@ The top-level container for all parsed game data.
 ### File header directives
 
 ```
-# BITSY VERSION 8.12
+my game title
 
-NAME my game title
+# BITSY VERSION 8.15
 
 ! ROOM_FORMAT 1
 ```
 
 | Directive | Maps to |
 |---|---|
+| First line (before `#` / `!` / segments) | `title`, `title_dialog`, `dialogues["title"]` |
 | `# BITSY VERSION X.Y` | `version.major`, `version.minor` |
-| `NAME <title>` | `title` (top-level, after version comment) |
+| `NAME <title>` | `title` (top-level fallback) |
 | `! ROOM_FORMAT 1` | `room_format = 1` (comma-separated room rows) |
+| `! ROOM_FORMAT 0` | `room_format = 0` (legacy single-char tile ids) |
+| `! TXT_MODE 0/1` | Hirez / lorez textbox |
+| `! DLG_COMPAT 1` | Pre-7.0 sprite↔dialog id linking (auto for `VER_MAJ < 7`) |
+| `TEXT_DIRECTION RTL` | Right-to-left textbox layout |
 
 ---
 
@@ -330,11 +336,11 @@ ITM 0 4,4
 ITM 0 5,3 DLG DLG_special
 ```
 
-### Runtime behavior
+### Runtime behavior (Phase 1)
 
-- Avatar walks onto an item to pick it up: inventory count for that item id increases by 1, then its dialog plays
-- After the dialog closes, the item is removed from the room so it is no longer drawn
-- Dialog scripts can `{item "id"}` (read) or `{item "id" n}` (set count) by id or `NAME`
+- Avatar walks onto an item to pick it up and show its dialog
+- The item is removed from the room so it is no longer drawn
+- Inventory counts and `{item}` give/take scripts are Phase 2
 
 ---
 
@@ -351,6 +357,8 @@ A 16×16 grid of tiles plus placed items, exits, and endings.
 | `items` | `vector<RoomItem>` | — | Placed collectible items |
 | `exits` | `vector<Exit>` | — | Warp points to other rooms |
 | `endings` | `vector<EndingRef>` | — | Tiles that trigger game endings |
+| `avatar_id` | `string` | `""` | Per-room avatar appearance (`AVA`) |
+| `tune_id` | `string` | `""` | Room music (`TUNE`); `"0"` / empty = silence |
 
 ### `TileGrid`
 
@@ -388,7 +396,9 @@ The room body has two parts:
 | `ITM <item_id> <x>,<y>` | Entry in `items` |
 | `EXT <x>,<y> <dest_room> <dx>,<dy> …` | Entry in `exits` |
 | `END <ending_id> <x>,<y>` | Entry in `endings` |
-| `WAL <id>,…` | Legacy wall list (noop in citsy; walls are on `Tile.is_wall`) |
+| `AVA <sprite_id>` | Per-room avatar appearance |
+| `TUNE <tune_id>` | Room music |
+| `WAL <id>,…` | Legacy wall list |
 
 ### Room format modes
 
@@ -424,7 +434,7 @@ EXT 0,8 0 15,8 TRANSITION fade DLG DLG_0
 
 Syntax: `EXT <src_x>,<src_y> <dest_room> <dest_x>,<dest_y> [TRANSITION <fx>] [DLG <id>]`
 
-Common transition effects include `fade`, `wipe`, and `clockwise`/`counterclockwise` (rendered in video mode during Phase 3).
+Common transition effects include `fade_w`, `fade_b`, `wave`, `tunnel`, and `slide_u` / `slide_d` / `slide_l` / `slide_r` (rendered in video mode). `none` or a missing `FX` warps instantly.
 
 When the avatar's tile position matches `(x, y)`, the engine moves them to `(dest_x, dest_y)` in `dest_room_id`.
 
@@ -446,7 +456,7 @@ Links a tile in a room to an ending definition.
 END 0 8,0
 ```
 
-When the avatar steps on tile `(x, y)`, the game plays ending `ending_id`'s text as dialog and then stops (`Engine::is_running()` becomes false). `{print}` / `{say}` in ending text are evaluated like other dialog.
+When the avatar steps on tile `(x, y)`, the game triggers ending `ending_id` and displays its text.
 
 > **Note:** `END` is overloaded in the file format. As a **room sub-key**, it defines a tile trigger (`EndingRef`). As a **top-level segment**, it defines the ending message (`Ending`). The parser distinguishes them by context.
 
@@ -474,15 +484,17 @@ Multiline content is stored with newline separators. The script may include:
 | Feature | Example syntax | Status in citsy |
 |---|---|---|
 | Text lines | `"Hello!"` | Yes |
-| Variable interpolation | `{print name}` | Yes |
+| Variable interpolation | `{print name}` / `{name}` | Yes |
 | Assignment | `{score = 5}` | Yes |
-| Conditionals | `{ - score == 1 ? … - else ? … }` | Yes |
-| Lists | `{sequence …}`, `{cycle …}`, `{shuffle …}` | Yes |
-| Item actions | `{item "key"}`, `{item "key" n}` | Yes |
-| Exit triggers | `{exit "room" x y}` | Yes |
-| Endings | room `END` tiles; `{end}` in dialog | Yes |
+| Conditionals | `{score}?` … `{else}` `{/}` | Yes (list form) |
+| Sequence / cycle / shuffle lists | `{sequence` / `{cycle` / `{shuffle` | Yes |
+| Item actions | `{item id}` / `{item id n}` | Yes |
+| Exit / end / lock | `{exit}` `{end}` `{lock}` | Yes |
+| Avatar / palette / tune / blip | `{ava}` `{pal}` `{tune}` `{blip}` | Yes |
+| Drawings in dialog | `{printSprite}` `{printTile}` `{printItem}` | Yes |
+| Text effects | `{wvy}` `{shk}` `{rbw}` `{clr}` | Yes |
 
-citsy stores dialog content as raw text and evaluates it at runtime (`src/dialog/script.cpp`). See [Dialog scripting](dialog.md).
+citsy stores dialog content as raw text. `DialogVM` evaluates the script at runtime.
 
 ---
 
@@ -600,7 +612,10 @@ Quick lookup of top-level `.bitsy` segment keywords:
 | `DLG` | Dialogue | string | `DLG DLG_0` |
 | `VAR` | Variable | name | `VAR score` |
 | `END` | Ending | string | `END 0` |
-| `FONT` | Custom font | — | Skipped by citsy (Phase 3) |
+| `FONT` | Custom font | — | Parsed (`.bitsyfont`) |
+| `DEFAULT_FONT` | Font name | — | `ascii_small` if omitted |
+| `TEXT_DIRECTION` | `LTR` / `RTL` | — | Right-to-left dialog layout |
+| `TUNE` | Music | string | Melody + harmony bars |
 | `EXT` | Exit (legacy top-level) | — | Skipped by citsy |
 
 Room-level sub-keys (`ITM`, `EXT`, `END`, `PAL`, `NAME`, `WAL`) appear inside a `ROOM` segment body, not as top-level segments.
@@ -623,7 +638,8 @@ struct Game {
     std::unordered_map<std::string, Room>      rooms;
     std::unordered_map<std::string, Dialogue>  dialogues;
     std::unordered_map<std::string, Variable>  variables;
-    std::unordered_map<std::string, Ending>    endings;
+    std::unordered_map<std::string, Tune>      tunes;
+    std::unordered_map<std::string, Blip>      blips;
 };
 
 struct Palette       { id, name, colors };
@@ -685,13 +701,15 @@ See `tests/data/minimal.bitsy` for a complete game using every entity type. Afte
 | Version header | Yes | — |
 | Comma-separated rooms | Yes | Phase 1 |
 | Legacy single-char rooms | Yes | Phase 1 |
-| Multi-frame animation | Yes (stored) | Phase 3 |
-| Extended palettes (`COL n`) | Yes | Phase 1 |
-| Wall tiles (`WAL true`) | Yes | Phase 1 |
-| Variables | Yes (stored) | Phase 2 |
-| Dialog scripts | Yes (raw text) | Linear text Phase 1; scripting Phase 2 |
-| Exit transitions | Yes (stored) | Instant warp Phase 1; effects Phase 3 |
-| Custom fonts (`FONT`) | Skipped | Phase 3 |
-| Sound | Not in file format | Phase 3 (engine-generated) |
+| Multi-frame animation | Yes (stored) | Yes (400 ms) |
+| Extended palettes (`COL n`) | Yes | Yes |
+| Wall tiles (`WAL true`) | Yes | Yes |
+| Variables | Yes | Yes |
+| Dialog scripts | Yes | Yes (Bitsy 8.15 tags) |
+| Exit transitions | Yes | Instant or FX in video mode |
+| Custom fonts (`FONT`) | Yes | Yes |
+| `TEXT_DIRECTION RTL` | Yes | Yes |
+| Blips / tunes | Yes | Channel params each frame |
+| Room avatar (`AVA`) | Yes | Yes |
 
 For the full compatibility matrix, see the [README compatibility table](../../README.md#file-format-compatibility).

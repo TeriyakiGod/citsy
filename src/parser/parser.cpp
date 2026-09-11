@@ -103,6 +103,92 @@ Color parse_color(std::string_view s, int line) {
     return {clamp(parts[0]), clamp(parts[1]), clamp(parts[2])};
 }
 
+int parse_note_name(std::string_view name, bool& solfa) {
+    solfa = false;
+    if (name.empty()) return 0;
+    // Solfa is lowercase.
+    if (name[0] >= 'a' && name[0] <= 'z') {
+        solfa = true;
+        switch (name[0]) {
+            case 'd': return 0;
+            case 'r': return 1;
+            case 'm': return 2;
+            case 'f': return 3;
+            case 's': return 4;
+            case 'l': return 5;
+            case 't': return 6;
+            default:  return 0;
+        }
+    }
+    static constexpr std::string_view kNames[] = {
+        "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
+    };
+    for (int i = 0; i < 12; ++i) {
+        if (name == kNames[i]) return i;
+    }
+    return 0;
+}
+
+Pitch parse_pitch(std::string_view raw) {
+    Pitch p;
+    p.beats = 1;
+    p.note = 0;
+    p.octave = 2;  // middle (Bitsy Octave[4])
+    raw = trim(raw);
+    // Optional blip suffix: C4~id
+    auto tilde = raw.find('~');
+    if (tilde != std::string_view::npos) {
+        p.blip_id = std::string(trim(raw.substr(tilde + 1)));
+        raw = raw.substr(0, tilde);
+    }
+    if (raw.empty()) {
+        p.beats = 0;
+        return p;
+    }
+    std::size_t i = 0;
+    std::string beats_tok;
+    while (i < raw.size() && raw[i] >= '0' && raw[i] <= '9') {
+        beats_tok.push_back(raw[i++]);
+    }
+    if (i >= raw.size()) {
+        // Bare number → rest of that many beats (0 = rest).
+        p.beats = beats_tok.empty() ? 0 : 0;
+        if (!beats_tok.empty()) {
+            int n = 0;
+            for (char c : beats_tok) n = n * 10 + (c - '0');
+            p.beats = n;
+            // A lone "0" is a rest; a lone positive number without a note
+            // is also treated as a rest (Bitsy: beats with no playable note).
+            p.note = 0;
+            return p;
+        }
+        p.beats = 0;
+        return p;
+    }
+    if (!beats_tok.empty()) {
+        int n = 0;
+        for (char c : beats_tok) n = n * 10 + (c - '0');
+        p.beats = n;
+    }
+    std::string note;
+    if (i < raw.size()) {
+        note.push_back(raw[i++]);
+        if (i < raw.size() && raw[i] == '#') note.push_back(raw[i++]);
+    }
+    p.note = parse_note_name(note, p.solfa);
+    if (i < raw.size() && raw[i] >= '2' && raw[i] <= '5') {
+        p.octave = (raw[i] - '2');  // '2'→0 … '5'→3
+    }
+    return p;
+}
+
+PulseWave parse_pulse(std::string_view s) {
+    s = trim(s);
+    if (s == "P8") return PulseWave::Eighth;
+    if (s == "P4") return PulseWave::Quarter;
+    return PulseWave::Half;
+}
+
 // Return true if @p s looks like "r,g,b" (three comma-separated numbers).
 bool looks_like_color(std::string_view s) {
     auto parts = split(s, ',');
@@ -137,6 +223,8 @@ public:
     Game parse() {
         Game game;
 
+        parse_title_if_present(game);
+
         while (pos_ < lines_.size()) {
             // Skip blank lines between segments.
             if (trim(lines_[pos_]).empty()) {
@@ -154,15 +242,20 @@ public:
                 ++pos_;
                 continue;
             }
-            if (line.starts_with("! ROOM_FORMAT")) {
-                auto [directive, value] = split_once(split_once(line).second);
-                (void)directive;
-                game.room_format = parse_int(value, current_line());
-                ++pos_;
-                continue;
-            }
             if (line.starts_with("!")) {
-                // Unknown directive — skip.
+                auto [bang, rest] = split_once(line);
+                auto [flag, value] = split_once(rest);
+                if (flag == "ROOM_FORMAT") {
+                    game.room_format = parse_int(value, current_line());
+                } else if (flag == "TXT_MODE") {
+                    game.txt_mode = parse_int(value, current_line());
+                } else if (flag == "DLG_COMPAT") {
+                    game.dlg_compat = parse_int(value, current_line());
+                } else if (flag == "VER_MAJ") {
+                    game.version.major = parse_int(value, current_line());
+                } else if (flag == "VER_MIN") {
+                    game.version.minor = parse_int(value, current_line());
+                }
                 ++pos_;
                 continue;
             }
@@ -185,7 +278,7 @@ public:
                 parse_sprite(std::string(id), game);
             } else if (keyword == "ITM") {
                 parse_item(std::string(id), game);
-            } else if (keyword == "ROOM") {
+            } else if (keyword == "ROOM" || keyword == "SET") {
                 parse_room(std::string(id), game);
             } else if (keyword == "DLG") {
                 parse_dialogue(std::string(id), game);
@@ -194,19 +287,33 @@ public:
             } else if (keyword == "END") {
                 parse_ending(std::string(id), game);
             } else if (keyword == "EXT") {
-                // Top-level EXT (older format): skip for now.
                 skip_segment();
             } else if (keyword == "FONT") {
-                // Custom font: skip for now (Phase 3).
-                skip_segment();
+                parse_font_data(std::string(id), game);
+            } else if (keyword == "DEFAULT_FONT") {
+                game.font_name = std::string(id);
+                ++pos_;
+            } else if (keyword == "TEXT_DIRECTION") {
+                auto dir = std::string(id);
+                if (dir == "RTL" || dir == "rtl")
+                    game.text_direction = TextDirection::RightToLeft;
+                else
+                    game.text_direction = TextDirection::LeftToRight;
+                ++pos_;
+            } else if (keyword == "TUNE") {
+                parse_tune(std::string(id), game);
+            } else if (keyword == "BLIP") {
+                parse_blip(std::string(id), game);
             } else if (keyword == "NAME") {
-                // Top-level NAME after BITSY VERSION comment.
                 game.title = std::string(id);
                 ++pos_;
             } else {
-                // Unknown segment — skip to next blank line.
                 skip_segment();
             }
+        }
+
+        if (game.version.major > 0 && game.version.major < 7) {
+            game.dlg_compat = 1;
         }
 
         return game;
@@ -218,6 +325,62 @@ private:
 
     [[nodiscard]] int current_line() const {
         return static_cast<int>(pos_) + 1;  // 1-based
+    }
+
+    [[nodiscard]] static bool is_segment_keyword(std::string_view kw) {
+        return kw == "PAL" || kw == "ROOM" || kw == "SET" || kw == "TIL" ||
+               kw == "SPR" || kw == "ITM" || kw == "DLG" || kw == "END" ||
+               kw == "VAR" || kw == "FONT" || kw == "DEFAULT_FONT" ||
+               kw == "TEXT_DIRECTION" || kw == "TUNE" || kw == "BLIP" ||
+               kw == "NAME" || kw == "EXT";
+    }
+
+    // First line of a .bitsy file is the title dialog (Bitsy 8.15).
+    // Skip if the file starts with a comment, flag, or named segment.
+    void parse_title_if_present(Game& game) {
+        while (pos_ < lines_.size() && trim(lines_[pos_]).empty()) ++pos_;
+        if (pos_ >= lines_.size()) return;
+
+        std::string_view line = trim(lines_[pos_]);
+        if (line.starts_with('#') || line.starts_with('!')) return;
+        auto [kw, rest] = split_once(line);
+        if (line != "\"\"\"" && is_segment_keyword(kw)) return;
+
+        std::string script;
+        if (line == "\"\"\"") {
+            script = lines_[pos_];
+            ++pos_;
+            while (pos_ < lines_.size() && trim(lines_[pos_]) != "\"\"\"") {
+                script += '\n';
+                script += lines_[pos_];
+                ++pos_;
+            }
+            if (pos_ < lines_.size()) {
+                script += '\n';
+                script += lines_[pos_];
+                ++pos_;
+            }
+        } else {
+            script = lines_[pos_];
+            ++pos_;
+        }
+
+        game.title_dialog = script;
+        if (game.title.empty()) {
+            auto plain = script;
+            if (plain.size() >= 6 && plain.starts_with("\"\"\"") &&
+                plain.ends_with("\"\"\"")) {
+                plain = plain.substr(3, plain.size() - 6);
+                if (!plain.empty() && plain.front() == '\n') plain.erase(plain.begin());
+            }
+            auto nl = plain.find('\n');
+            game.title = (nl == std::string::npos) ? plain : plain.substr(0, nl);
+        }
+
+        Dialogue dlg;
+        dlg.id = std::string(Game::kTitleDialogId);
+        dlg.content = script;
+        game.dialogues[dlg.id] = std::move(dlg);
     }
 
     // Consume lines until (but not including) the next blank line or EOF.
@@ -358,6 +521,13 @@ private:
                 } else if (kw == "COL") {
                     auto col_idx = parse_int(rest, header_line + static_cast<int>(i));
                     tile.color_index = static_cast<std::uint8_t>(col_idx);
+                } else if (kw == "BGC") {
+                    auto bg = trim(rest);
+                    if (bg == "*") {
+                        tile.bgc_transparent = true;
+                    } else {
+                        tile.bgc = parse_int(bg, header_line + static_cast<int>(i));
+                    }
                 }
                 ++i;
             }
@@ -408,6 +578,19 @@ private:
                 } else if (kw == "COL") {
                     spr.color_index = static_cast<std::uint8_t>(
                         parse_int(rest, header_line + static_cast<int>(i)));
+                } else if (kw == "BGC") {
+                    auto bg = trim(rest);
+                    if (bg == "*") spr.bgc_transparent = true;
+                    else spr.bgc = parse_int(bg, header_line + static_cast<int>(i));
+                } else if (kw == "BLIP") {
+                    spr.blip_id = std::string(rest);
+                } else if (kw == "ITM") {
+                    auto [item_id, count] = split_once(rest);
+                    int n = 1;
+                    if (!count.empty()) {
+                        n = parse_int(count, header_line + static_cast<int>(i));
+                    }
+                    spr.inventory[std::string(item_id)] = n;
                 }
                 ++i;
             }
@@ -449,6 +632,12 @@ private:
                 } else if (kw == "COL") {
                     itm.color_index = static_cast<std::uint8_t>(
                         parse_int(rest, header_line + static_cast<int>(i)));
+                } else if (kw == "BGC") {
+                    auto bg = trim(rest);
+                    if (bg == "*") itm.bgc_transparent = true;
+                    else itm.bgc = parse_int(bg, header_line + static_cast<int>(i));
+                } else if (kw == "BLIP") {
+                    itm.blip_id = std::string(rest);
                 }
                 ++i;
             }
@@ -547,9 +736,14 @@ private:
                 er.y = y;
                 room.endings.push_back(std::move(er));
             } else if (kw == "WAL") {
-                // Legacy wall list: WAL a,b,c,…  (mark tiles as walls)
-                // We handle WAL per-tile in parse_tile; here it's a noop for
-                // Phase 0 (wall data is on the Tile, not the Room).
+                auto ids = split(rest, ',');
+                for (auto idv : ids) {
+                    if (!idv.empty()) room.wall_ids.emplace_back(idv);
+                }
+            } else if (kw == "AVA") {
+                room.avatar_id = std::string(rest);
+            } else if (kw == "TUNE") {
+                room.tune_id = std::string(rest);
             }
             ++i;
         }
@@ -625,10 +819,15 @@ private:
         Dialogue dlg;
         dlg.id = id;
 
-        // Collect all lines as raw content.
         std::string content;
         for (std::size_t i = 0; i < body.size(); ++i) {
-            if (i > 0) content += '\n';
+            std::string_view line = trim(body[i]);
+            auto [kw, rest] = split_once(line);
+            if (kw == "NAME" && i + 1 == body.size()) {
+                dlg.name = std::string(rest);
+                continue;
+            }
+            if (!content.empty()) content += '\n';
             content += body[i];
         }
         dlg.content = std::move(content);
@@ -675,6 +874,166 @@ private:
         ending.text = std::move(text);
 
         game.endings[ending.id] = std::move(ending);
+    }
+
+    // -----------------------------------------------------------------------
+    // FONT
+    // -----------------------------------------------------------------------
+    void parse_font_data(std::string id, Game& game) {
+        std::vector<std::string> body;
+        body.push_back(lines_[pos_]);  // include "FONT <name>"
+        ++pos_;
+        while (pos_ < lines_.size() && !trim(lines_[pos_]).empty()) {
+            body.push_back(lines_[pos_]);
+            ++pos_;
+        }
+        std::string data;
+        for (std::size_t i = 0; i < body.size(); ++i) {
+            if (i) data += '\n';
+            data += body[i];
+        }
+        game.font_name = id.empty() ? game.font_name : id;
+        game.font_data = std::move(data);
+    }
+
+    // -----------------------------------------------------------------------
+    // TUNE
+    // -----------------------------------------------------------------------
+    void parse_tune(std::string id, Game& game) {
+        ++pos_;
+        std::vector<std::string> body = read_body();
+
+        Tune tune;
+        tune.id = id;
+
+        std::size_t i = 0;
+        auto parse_bar = [&](std::array<Pitch, kBarLength>& bar, std::string_view line) {
+            auto notes = split(line, ',');
+            for (int j = 0; j < kBarLength; ++j) {
+                if (j < static_cast<int>(notes.size()) && !notes[static_cast<std::size_t>(j)].empty())
+                    bar[static_cast<std::size_t>(j)] = parse_pitch(notes[static_cast<std::size_t>(j)]);
+                else
+                    bar[static_cast<std::size_t>(j)] = Pitch{};
+            }
+        };
+
+        while (i < body.size()) {
+            std::string_view line = trim(body[i]);
+            auto [kw, rest] = split_once(line);
+            if (kw == "NAME") {
+                tune.name = std::string(rest);
+                ++i;
+                continue;
+            }
+            if (kw == "KEY") {
+                TuneKey key;
+                key.notes.fill(-1);
+                auto [notes_s, scale_s] = split_once(rest);
+                auto ntoks = split(notes_s, ',');
+                for (int j = 0; j < 7 && j < static_cast<int>(ntoks.size()); ++j) {
+                    Pitch p = parse_pitch(ntoks[static_cast<std::size_t>(j)]);
+                    key.notes[static_cast<std::size_t>(j)] = p.note;
+                }
+                if (!scale_s.empty()) {
+                    auto stoks = split(scale_s, ',');
+                    for (auto s : stoks) {
+                        bool solfa = false;
+                        int n = parse_note_name(s, solfa);
+                        key.scale.push_back(n);
+                    }
+                }
+                tune.key = key;
+                ++i;
+                continue;
+            }
+            if (kw == "TMP") {
+                auto t = std::string(rest);
+                if (t == "SLW") tune.tempo = Tempo::Slow;
+                else if (t == "MED") tune.tempo = Tempo::Medium;
+                else if (t == "FST") tune.tempo = Tempo::Fast;
+                else if (t == "XFST") tune.tempo = Tempo::ExtraFast;
+                ++i;
+                continue;
+            }
+            if (kw == "SQR") {
+                auto [a, b] = split_once(rest);
+                tune.instrument_a = parse_pulse(a);
+                if (!b.empty()) tune.instrument_b = parse_pulse(b);
+                ++i;
+                continue;
+            }
+            if (kw == "ARP") {
+                auto a = std::string(rest);
+                if (a == "UP") tune.arpeggio = Arpeggio::Up;
+                else if (a == "DWN") tune.arpeggio = Arpeggio::Down;
+                else if (a == "INT5") tune.arpeggio = Arpeggio::Int5;
+                else if (a == "INT8") tune.arpeggio = Arpeggio::Int8;
+                else tune.arpeggio = Arpeggio::Off;
+                ++i;
+                continue;
+            }
+            if (line == ">") {
+                ++i;
+                continue;
+            }
+            // Melody row then harmony row.
+            if (i + 1 >= body.size()) break;
+            std::array<Pitch, kBarLength> melody{};
+            std::array<Pitch, kBarLength> harmony{};
+            parse_bar(melody, line);
+            parse_bar(harmony, trim(body[i + 1]));
+            tune.melody.push_back(melody);
+            tune.harmony.push_back(harmony);
+            i += 2;
+        }
+
+        game.tunes[tune.id] = std::move(tune);
+    }
+
+    // -----------------------------------------------------------------------
+    // BLIP
+    // -----------------------------------------------------------------------
+    void parse_blip(std::string id, Game& game) {
+        ++pos_;
+        std::vector<std::string> body = read_body();
+
+        Blip blip;
+        blip.id = id;
+
+        std::size_t i = 0;
+        if (i < body.size()) {
+            auto notes = split(trim(body[i]), ',');
+            if (notes.size() >= 1) blip.pitch_a = parse_pitch(notes[0]);
+            if (notes.size() >= 2) blip.pitch_b = parse_pitch(notes[1]);
+            if (notes.size() >= 3) blip.pitch_c = parse_pitch(notes[2]);
+            ++i;
+        }
+        while (i < body.size()) {
+            std::string_view line = trim(body[i]);
+            auto [kw, rest] = split_once(line);
+            if (kw == "NAME") {
+                blip.name = std::string(rest);
+            } else if (kw == "ENV") {
+                std::vector<std::string_view> toks;
+                for (auto p : split(rest, ' ')) if (!p.empty()) toks.push_back(p);
+                if (toks.size() >= 1) blip.envelope.attack  = parse_int(toks[0], current_line());
+                if (toks.size() >= 2) blip.envelope.decay   = parse_int(toks[1], current_line());
+                if (toks.size() >= 3) blip.envelope.sustain = parse_int(toks[2], current_line());
+                if (toks.size() >= 4) blip.envelope.length  = parse_int(toks[3], current_line());
+                if (toks.size() >= 5) blip.envelope.release = parse_int(toks[4], current_line());
+            } else if (kw == "BEAT") {
+                auto [a, b] = split_once(rest);
+                blip.beat.time = parse_int(a, current_line());
+                if (!b.empty()) blip.beat.delay = parse_int(b, current_line());
+            } else if (kw == "SQR") {
+                blip.instrument = parse_pulse(rest);
+            } else if (kw == "RPT") {
+                blip.do_repeat = (trim(rest) == "1" || trim(rest) == "true");
+            }
+            ++i;
+        }
+
+        game.blips[blip.id] = std::move(blip);
     }
 };
 

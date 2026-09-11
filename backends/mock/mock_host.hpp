@@ -26,6 +26,8 @@ struct PresentSnapshot {
     std::vector<std::uint8_t>  map1;    ///< 16×16
     std::vector<std::uint8_t>  map2;    ///< 16×16
     bool                       textbox_visible;
+    int                        textbox_x;
+    int                        textbox_y;
     int                        textbox_width;
     int                        textbox_height;
     std::vector<std::uint8_t>  textbox_pixels;
@@ -93,6 +95,8 @@ public:
         snap.map1             = {map1.begin(),    map1.end()};
         snap.map2             = {map2.begin(),    map2.end()};
         snap.textbox_visible  = textbox.visible;
+        snap.textbox_x        = textbox.x;
+        snap.textbox_y        = textbox.y;
         snap.textbox_width    = textbox.width;
         snap.textbox_height   = textbox.height;
         snap.textbox_pixels   = {textbox.pixels.begin(), textbox.pixels.end()};

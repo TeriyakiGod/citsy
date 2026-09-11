@@ -79,6 +79,8 @@ enum class TextMode {
 /// Non-owning view of the textbox pixel buffer passed to Host::present().
 struct TextboxView {
     bool                        visible = false;
+    int                         x       = 0;   ///< top-left in the 128×128 video (Bitsy units)
+    int                         y       = 0;
     int                         width   = 0;
     int                         height  = 0;
     std::span<const std::uint8_t> pixels;  ///< colour indices; empty when !visible

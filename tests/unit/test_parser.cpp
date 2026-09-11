@@ -682,7 +682,9 @@ TEST_CASE("fixture: mossland.bitsy parses real game", "[fixture][mossland]") {
     CHECK(game.tiles.size()   == 31);
     CHECK(game.sprites.size() == 18);
     CHECK(game.items.size()   == 2);
-    CHECK(game.dialogues.size() == 10);
+    CHECK(game.title == "mossland");
+    CHECK(game.dlg_compat == 1);
+    CHECK(game.dialogues.size() == 11);  // 10 DLG ids + title
     CHECK(game.endings.size() == 1);
 
     // Avatar (sprite A) — two animation frames, starts in room 1

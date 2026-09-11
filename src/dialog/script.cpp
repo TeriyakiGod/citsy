@@ -2,1025 +2,852 @@
 
 #include <algorithm>
 #include <cctype>
-#include <charconv>
 #include <cmath>
+#include <numeric>
+#include <random>
 #include <sstream>
-#include <unordered_set>
-#include <utility>
 
 namespace citsy {
 namespace {
 
-// ===========================================================================
-// Value helpers
-// ===========================================================================
-
-[[nodiscard]] bool is_ident_start(char c) {
-    return std::isalpha(static_cast<unsigned char>(c)) || c == '_';
+std::string_view trim_sv(std::string_view s) {
+    auto ws = [](unsigned char c) {
+        return c == ' ' || c == '\t' || c == '\n' || c == '\r';
+    };
+    while (!s.empty() && ws(static_cast<unsigned char>(s.front()))) s.remove_prefix(1);
+    while (!s.empty() && ws(static_cast<unsigned char>(s.back()))) s.remove_suffix(1);
+    return s;
 }
 
-[[nodiscard]] bool is_ident_cont(char c) {
-    return std::isalnum(static_cast<unsigned char>(c)) || c == '_';
+std::string unquote(std::string_view s) {
+    s = trim_sv(s);
+    if (s.size() >= 2 && s.front() == '"' && s.back() == '"') {
+        return std::string(s.substr(1, s.size() - 2));
+    }
+    return std::string(s);
 }
 
-[[nodiscard]] bool is_space(char c) {
-    return c == ' ' || c == '\t';
+std::vector<std::string> split_args(std::string_view s) {
+    std::vector<std::string> out;
+    std::string cur;
+    bool in_str = false;
+    int depth = 0;
+    for (std::size_t i = 0; i < s.size(); ++i) {
+        char c = s[i];
+        if (c == '"' && (i == 0 || s[i - 1] != '\\')) {
+            in_str = !in_str;
+            cur.push_back(c);
+        } else if (!in_str && c == '{') {
+            ++depth;
+            cur.push_back(c);
+        } else if (!in_str && c == '}' && depth > 0) {
+            --depth;
+            cur.push_back(c);
+        } else if (!in_str && depth == 0 && (c == ' ' || c == '\t' || c == ',')) {
+            if (!cur.empty()) {
+                out.push_back(cur);
+                cur.clear();
+            }
+        } else {
+            cur.push_back(c);
+        }
+    }
+    if (!cur.empty()) out.push_back(cur);
+    return out;
 }
 
-[[nodiscard]] bool is_nl(char c) {
-    return c == '\n' || c == '\r';
-}
-
-[[nodiscard]] bool is_ws(char c) {
-    return is_space(c) || is_nl(c);
-}
-
-[[nodiscard]] bool parses_as_number(std::string_view s, double& out) {
+bool looks_number(std::string_view s) {
+    s = trim_sv(s);
     if (s.empty()) return false;
-    const char* begin = s.data();
-    const char* end = s.data() + s.size();
-    auto [ptr, ec] = std::from_chars(begin, end, out);
-    return ec == std::errc{} && ptr == end;
-}
-
-const std::unordered_set<std::string> kFunctions = {
-    "print", "say",
-    "br",
-    "p", "pg", "pagebreak",
-    "item",
-    "end",
-    "exit",
-    "wvy", "wavy",
-    "shk", "shake",
-    "rbw", "rainbow",
-    "clr", "clr1", "clr2", "clr3",
-    "printSprite", "printTile", "printItem",
-    "drw", "drwt", "drws", "drwi",
-    "property",
-};
-
-[[nodiscard]] bool is_function_name(std::string_view n) {
-    return kFunctions.count(std::string(n)) != 0;
-}
-
-[[nodiscard]] bool is_visual_noop(std::string_view n) {
-    return n == "wvy" || n == "wavy" || n == "shk" || n == "shake" ||
-           n == "rbw" || n == "rainbow" || n == "clr" || n == "clr1" ||
-           n == "clr2" || n == "clr3" || n == "printSprite" ||
-           n == "printTile" || n == "printItem" || n == "drw" ||
-           n == "drwt" || n == "drws" || n == "drwi" || n == "property";
-}
-
-// ===========================================================================
-// AST
-// ===========================================================================
-
-enum class NodeKind {
-    Literal,
-    Var,
-    Call,
-    Binary,
-    Text,
-    Block,
-    List,
-};
-
-enum class ListKind { Branch, Sequence, Cycle, Shuffle };
-
-enum class TextOp { Str, Nested, Page, Br };
-
-struct Node;
-
-struct TextPart {
-    TextOp                 op = TextOp::Str;
-    std::string            text;
-    std::unique_ptr<Node>  nested;
-};
-
-struct ListItem {
-    std::unique_ptr<Node> cond;
-    bool                  is_else = false;
-    std::unique_ptr<Node> body;
-};
-
-struct Node {
-    NodeKind kind = NodeKind::Block;
-
-    Value       literal;
-    std::string name;   // var, function, or operator
-    std::vector<std::unique_ptr<Node>> kids;
-
-    std::vector<TextPart> parts;  // Text
-    std::vector<ListItem> items;  // List
-    ListKind list_kind = ListKind::Branch;
-    int      list_index = 0;
-    std::vector<int> shuffle_bag;
-};
-
-[[nodiscard]] std::unique_ptr<Node> make_literal(Value v) {
-    auto n = std::make_unique<Node>();
-    n->kind = NodeKind::Literal;
-    n->literal = std::move(v);
-    return n;
-}
-
-[[nodiscard]] std::unique_ptr<Node> make_var(std::string name) {
-    auto n = std::make_unique<Node>();
-    n->kind = NodeKind::Var;
-    n->name = std::move(name);
-    return n;
-}
-
-[[nodiscard]] std::unique_ptr<Node> make_binary(std::string op,
-                                                std::unique_ptr<Node> lhs,
-                                                std::unique_ptr<Node> rhs) {
-    auto n = std::make_unique<Node>();
-    n->kind = NodeKind::Binary;
-    n->name = std::move(op);
-    n->kids.push_back(std::move(lhs));
-    n->kids.push_back(std::move(rhs));
-    return n;
-}
-
-// ===========================================================================
-// Stream
-// ===========================================================================
-
-struct Stream {
-    std::string_view s;
     std::size_t i = 0;
-
-    [[nodiscard]] bool eof() const { return i >= s.size(); }
-    [[nodiscard]] char peek() const { return eof() ? '\0' : s[i]; }
-    [[nodiscard]] char peek_at(std::size_t k) const {
-        return (i + k >= s.size()) ? '\0' : s[i + k];
+    if (s[0] == '-' || s[0] == '+') ++i;
+    bool digit = false;
+    for (; i < s.size(); ++i) {
+        if (s[i] == '.') continue;
+        if (s[i] < '0' || s[i] > '9') return false;
+        digit = true;
     }
-
-    char get() { return eof() ? '\0' : s[i++]; }
-
-    void skip_ws() {
-        while (!eof() && is_ws(peek())) ++i;
-    }
-
-    void skip_spaces() {
-        while (!eof() && is_space(peek())) ++i;
-    }
-
-    void skip_newline() {
-        if (peek() == '\r') get();
-        if (peek() == '\n') get();
-    }
-
-    [[nodiscard]] bool at_list_bullet() const {
-        if (peek() != '-') return false;
-        char n = peek_at(1);
-        if (n == '\0' || n == '}') return true;
-        if (is_space(n) || is_nl(n)) return true;
-        if (n == '{') return true;
-        if (is_ident_start(n)) return true;
-        return false;
-    }
-
-    [[nodiscard]] std::string_view rest() const { return s.substr(i); }
-};
-
-[[nodiscard]] int op_prec(std::string_view op) {
-    if (op == "*" || op == "/") return 3;
-    if (op == "+" || op == "-") return 2;
-    if (op == "==" || op == "!=" || op == "<" || op == ">" ||
-        op == "<=" || op == ">=") {
-        return 1;
-    }
-    return 0;
+    return digit;
 }
 
-[[nodiscard]] std::string peek_op(const Stream& st) {
-    char c = st.peek();
-    char n = st.peek_at(1);
-    if (c == '=' && n == '=') return "==";
-    if (c == '!' && n == '=') return "!=";
-    if (c == '<' && n == '=') return "<=";
-    if (c == '>' && n == '=') return ">=";
-    if (c == '<' || c == '>' || c == '+' || c == '*' || c == '/' || c == '-') {
-        return std::string(1, c);
+std::string_view first_ident(std::string_view s) {
+    s = trim_sv(s);
+    std::size_t i = 0;
+    if (i < s.size() && (std::isalpha(static_cast<unsigned char>(s[i])) || s[i] == '_')) {
+        ++i;
+        while (i < s.size() &&
+               (std::isalnum(static_cast<unsigned char>(s[i])) || s[i] == '_')) {
+            ++i;
+        }
     }
-    return {};
+    return s.substr(0, i);
 }
 
-void consume_op(Stream& st, std::string_view op) {
-    for (std::size_t k = 0; k < op.size(); ++k) st.get();
-}
-
-// ===========================================================================
-// Parser
-// ===========================================================================
-
-struct Parser {
-    Stream st;
-
-    explicit Parser(std::string_view src) : st{src, 0} {}
-
-    std::unique_ptr<Node> parse_script() {
-        auto block = parse_block(/*stop_at_brace=*/false, /*stop_at_bullet=*/false);
-        return block;
-    }
-
-    // ---- block / text -----------------------------------------------------
-
-    std::unique_ptr<Node> parse_block(bool stop_at_brace, bool stop_at_bullet) {
-        auto block = std::make_unique<Node>();
-        block->kind = NodeKind::Block;
-
-        bool prev_quoted = false;
-        while (!st.eof()) {
-            st.skip_spaces();
-            if (st.eof()) break;
-
-            if (stop_at_brace && st.peek() == '}') break;
-            if (stop_at_bullet && st.at_list_bullet()) break;
-
-            if (is_nl(st.peek())) {
-                // Blank line at block level → page break (Bitsy list pages).
-                st.skip_newline();
-                st.skip_spaces();
-                if (!st.eof() && is_nl(st.peek())) {
-                    st.skip_newline();
-                    auto pb = std::make_unique<Node>();
-                    pb->kind = NodeKind::Text;
-                    pb->parts.push_back(TextPart{TextOp::Page, {}, {}});
-                    block->kids.push_back(std::move(pb));
-                    prev_quoted = false;
-                }
-                continue;
-            }
-
-            if (st.peek() == '}') break;
-
-            if (st.peek() == '"') {
-                if (prev_quoted) {
-                    auto pb = std::make_unique<Node>();
-                    pb->kind = NodeKind::Text;
-                    pb->parts.push_back(TextPart{TextOp::Page, {}, {}});
-                    block->kids.push_back(std::move(pb));
-                }
-                block->kids.push_back(parse_quoted_text());
-                prev_quoted = true;
-                continue;
-            }
-
-            if (st.peek() == '{') {
-                block->kids.push_back(parse_code());
-                prev_quoted = false;
-                continue;
-            }
-
-            if (stop_at_bullet && st.at_list_bullet()) break;
-
-            block->kids.push_back(parse_unquoted_text(stop_at_brace, stop_at_bullet));
-            prev_quoted = false;
-        }
-        return block;
-    }
-
-    std::unique_ptr<Node> parse_quoted_text() {
-        const bool triple = st.peek_at(0) == '"' && st.peek_at(1) == '"' &&
-                            st.peek_at(2) == '"';
-        if (triple) {
-            st.get(); st.get(); st.get();
-            if (is_nl(st.peek())) st.skip_newline();
-        } else {
-            st.get();  // opening "
-        }
-
-        auto node = std::make_unique<Node>();
-        node->kind = NodeKind::Text;
-        parse_text_contents(*node, /*triple=*/triple,
-                            /*unquoted=*/false,
-                            /*stop_at_brace=*/false,
-                            /*stop_at_bullet=*/false);
-        if (triple) {
-            if (st.peek_at(0) == '"' && st.peek_at(1) == '"' &&
-                st.peek_at(2) == '"') {
-                st.get(); st.get(); st.get();
-            }
-        } else if (st.peek() == '"') {
-            st.get();
-        }
-        return node;
-    }
-
-    std::unique_ptr<Node> parse_unquoted_text(bool stop_at_brace,
-                                              bool stop_at_bullet) {
-        auto node = std::make_unique<Node>();
-        node->kind = NodeKind::Text;
-        parse_text_contents(*node, /*triple=*/false,
-                            /*unquoted=*/true,
-                            stop_at_brace, stop_at_bullet);
-        return node;
-    }
-
-    void parse_text_contents(Node& node, bool triple, bool unquoted,
-                             bool stop_at_brace, bool stop_at_bullet) {
-        std::string acc;
-        auto flush = [&] {
-            if (!acc.empty()) {
-                node.parts.push_back(TextPart{TextOp::Str, std::move(acc), {}});
-                acc.clear();
-            }
-        };
-
-        while (!st.eof()) {
-            if (!triple && !unquoted && st.peek() == '"') break;
-            if (triple && st.peek_at(0) == '"' && st.peek_at(1) == '"' &&
-                st.peek_at(2) == '"') {
-                break;
-            }
-            if (unquoted && st.peek() == '"') break;
-            if (unquoted && stop_at_brace && st.peek() == '}') break;
-            if (unquoted && stop_at_bullet && st.at_list_bullet()) break;
-
-            if (st.peek() == '{') {
-                flush();
-                TextPart p;
-                p.op = TextOp::Nested;
-                p.nested = parse_code();
-                node.parts.push_back(std::move(p));
-                continue;
-            }
-
-            if (is_nl(st.peek())) {
-                const std::size_t before = st.i;
-                st.skip_newline();
-                st.skip_spaces();
-                if (!st.eof() && is_nl(st.peek())) {
-                    st.skip_newline();
-                    flush();
-                    node.parts.push_back(TextPart{TextOp::Page, {}, {}});
-                    continue;
-                }
-                st.i = before;
-                acc.push_back('\n');
-                st.skip_newline();
-                continue;
-            }
-
-            acc.push_back(st.get());
-        }
-        flush();
-    }
-
-    // ---- code / lists / expressions ---------------------------------------
-
-    std::unique_ptr<Node> parse_code() {
-        if (st.peek() != '{') return make_literal(Value::null());
-        st.get();  // {
-        st.skip_ws();
-
-        if (st.peek() == '}') {
-            st.get();
-            return make_literal(Value::null());
-        }
-
-        ListKind lk = ListKind::Branch;
-        bool is_list = false;
-        if (auto w = peek_word(); w == "sequence" || w == "cycle" ||
-                                  w == "shuffle") {
-            is_list = true;
-            if (w == "sequence") lk = ListKind::Sequence;
-            else if (w == "cycle") lk = ListKind::Cycle;
-            else lk = ListKind::Shuffle;
-            consume_word();
-            st.skip_ws();
-        } else if (st.at_list_bullet()) {
-            is_list = true;
-            lk = ListKind::Branch;
-        }
-
-        std::unique_ptr<Node> node;
-        if (is_list) {
-            node = parse_list(lk);
-        } else {
-            node = parse_expression();
-        }
-        st.skip_ws();
-        if (st.peek() == '}') st.get();
-        return node;
-    }
-
-    [[nodiscard]] std::string peek_word() const {
-        std::size_t k = st.i;
-        if (k >= st.s.size() || !is_ident_start(st.s[k])) return {};
-        std::size_t b = k++;
-        while (k < st.s.size() && is_ident_cont(st.s[k])) ++k;
-        return std::string(st.s.substr(b, k - b));
-    }
-
-    std::string consume_word() {
-        st.skip_ws();
-        if (!is_ident_start(st.peek())) return {};
-        std::string w;
-        w.push_back(st.get());
-        while (is_ident_cont(st.peek())) w.push_back(st.get());
-        return w;
-    }
-
-    std::unique_ptr<Node> parse_list(ListKind kind) {
-        auto node = std::make_unique<Node>();
-        node->kind = NodeKind::List;
-        node->list_kind = kind;
-
-        st.skip_ws();
-        while (!st.eof() && st.peek() != '}') {
-            st.skip_ws();
-            if (st.peek() == '}' || st.eof()) break;
-            if (!st.at_list_bullet()) break;
-            st.get();  // '-'
-            node->items.push_back(parse_list_item());
-        }
-        return node;
-    }
-
-    [[nodiscard]] bool looks_like_condition() {
-        const std::size_t saved = st.i;
-        st.skip_ws();
-        int depth = 0;
-        bool in_str = false;
-        bool prev_ident = false;
-        bool two_idents = false;
-        bool seen_q = false;
-
-        while (!st.eof()) {
-            char c = st.peek();
-            if (!in_str && depth == 0 && is_nl(c)) break;
-            if (!in_str && depth == 0 && c == '}') break;
-
-            if (!in_str && c == '"') {
-                in_str = true;
-                prev_ident = false;
-                st.get();
-                if (st.peek_at(0) == '"' && st.peek_at(1) == '"') {
-                    st.get(); st.get();
-                    while (!st.eof() &&
-                           !(st.peek() == '"' && st.peek_at(1) == '"' &&
-                             st.peek_at(2) == '"')) {
-                        st.get();
-                    }
-                    if (!st.eof()) { st.get(); st.get(); st.get(); }
-                    in_str = false;
-                } else {
-                    while (!st.eof() && st.peek() != '"') st.get();
-                    if (st.peek() == '"') st.get();
-                    in_str = false;
-                }
-                continue;
-            }
-
-            if (!in_str && c == '{') {
-                ++depth;
-                prev_ident = false;
-                st.get();
-                continue;
-            }
-            if (!in_str && c == '}') {
-                if (depth == 0) break;
-                --depth;
-                prev_ident = false;
-                st.get();
-                continue;
-            }
-
-            if (!in_str && depth == 0 && c == '?') {
-                seen_q = true;
-                break;
-            }
-
-            if (!in_str && depth == 0 && is_ident_start(c)) {
-                if (prev_ident) two_idents = true;
-                st.get();
-                while (is_ident_cont(st.peek())) st.get();
-                prev_ident = true;
-                continue;
-            }
-
-            if (!in_str && depth == 0 && is_ws(c)) {
-                st.get();
-                continue;
-            }
-
-            prev_ident = false;
-            st.get();
-        }
-
-        st.i = saved;
-        return seen_q && !two_idents;
-    }
-
-    ListItem parse_list_item() {
-        ListItem item;
-        st.skip_ws();
-        if (looks_like_condition()) {
-            item.cond = parse_expression();
-            st.skip_ws();
-            if (st.peek() == '?') st.get();
-            if (item.cond && item.cond->kind == NodeKind::Var &&
-                item.cond->name == "else") {
-                item.is_else = true;
-            }
-            st.skip_ws();
-        }
-        item.body = parse_block(/*stop_at_brace=*/true, /*stop_at_bullet=*/true);
-        return item;
-    }
-
-    std::unique_ptr<Node> parse_expression() {
-        st.skip_ws();
-
-        if (is_ident_start(st.peek())) {
-            const std::size_t saved = st.i;
-            std::string name = consume_word();
-            st.skip_ws();
-
-            if (st.peek() == '=' && st.peek_at(1) != '=') {
-                st.get();
-                auto rhs = parse_expression();
-                return make_binary("=", make_var(std::move(name)), std::move(rhs));
-            }
-
-            const bool known = is_function_name(name);
-            const bool next_is_arg = next_is_argument();
-
-            if (known || next_is_arg) {
-                auto call = std::make_unique<Node>();
-                call->kind = NodeKind::Call;
-                call->name = std::move(name);
-                while (next_is_argument()) {
-                    call->kids.push_back(parse_unary());
-                    st.skip_ws();
-                }
-                return parse_binop_rest(std::move(call), 1);
-            }
-
-            st.i = saved;
-        }
-
-        auto lhs = parse_unary();
-        return parse_binop_rest(std::move(lhs), 1);
-    }
-
-    [[nodiscard]] bool next_is_argument() {
-        st.skip_ws();
-        if (st.eof() || st.peek() == '}' || st.peek() == '?') return false;
-        if (!peek_op(st).empty()) return false;
-        if (st.at_list_bullet()) return false;
-        char c = st.peek();
-        return c == '"' || c == '{' || c == '.' ||
-               std::isdigit(static_cast<unsigned char>(c)) ||
-               is_ident_start(c) ||
-               (c == '-' && std::isdigit(static_cast<unsigned char>(st.peek_at(1))));
-    }
-
-    std::unique_ptr<Node> parse_binop_rest(std::unique_ptr<Node> lhs, int min_prec) {
-        for (;;) {
-            st.skip_ws();
-            std::string op = peek_op(st);
-            if (op.empty()) break;
-            const int prec = op_prec(op);
-            if (prec < min_prec) break;
-            consume_op(st, op);
-            auto rhs = parse_unary();
-            for (;;) {
-                st.skip_ws();
-                std::string nop = peek_op(st);
-                if (nop.empty() || op_prec(nop) <= prec) break;
-                rhs = parse_binop_rest(std::move(rhs), prec + 1);
-            }
-            lhs = make_binary(std::move(op), std::move(lhs), std::move(rhs));
-        }
-        return lhs;
-    }
-
-    std::unique_ptr<Node> parse_unary() {
-        st.skip_ws();
-        if (st.peek() == '-' && !st.at_list_bullet()) {
-            st.get();
-            auto rhs = parse_unary();
-            return make_binary("-", make_literal(Value::number(0)), std::move(rhs));
-        }
-        return parse_primary();
-    }
-
-    std::unique_ptr<Node> parse_primary() {
-        st.skip_ws();
-        if (st.peek() == '{') return parse_code();
-        if (st.peek() == '"') return parse_string_literal();
-
-        if (std::isdigit(static_cast<unsigned char>(st.peek())) ||
-            (st.peek() == '.' &&
-             std::isdigit(static_cast<unsigned char>(st.peek_at(1))))) {
-            return parse_number();
-        }
-
-        if (is_ident_start(st.peek())) {
-            std::string name = consume_word();
-            if (name == "true") return make_literal(Value::number(1));
-            if (name == "false") return make_literal(Value::number(0));
-            return make_var(std::move(name));
-        }
-
-        return make_literal(Value::null());
-    }
-
-    std::unique_ptr<Node> parse_string_literal() {
-        const bool triple = st.peek_at(0) == '"' && st.peek_at(1) == '"' &&
-                            st.peek_at(2) == '"';
-        std::string out;
-        if (triple) {
-            st.get(); st.get(); st.get();
-            if (is_nl(st.peek())) st.skip_newline();
-            while (!st.eof() &&
-                   !(st.peek() == '"' && st.peek_at(1) == '"' &&
-                     st.peek_at(2) == '"')) {
-                out.push_back(st.get());
-            }
-            if (!st.eof()) { st.get(); st.get(); st.get(); }
-            if (!out.empty() && out.back() == '\n') out.pop_back();
-        } else {
-            st.get();
-            while (!st.eof() && st.peek() != '"') out.push_back(st.get());
-            if (st.peek() == '"') st.get();
-        }
-        return make_literal(Value::string(std::move(out)));
-    }
-
-    std::unique_ptr<Node> parse_number() {
-        const std::size_t b = st.i;
-        if (st.peek() == '.') st.get();
-        while (std::isdigit(static_cast<unsigned char>(st.peek()))) st.get();
-        if (st.peek() == '.') {
-            st.get();
-            while (std::isdigit(static_cast<unsigned char>(st.peek()))) st.get();
-        }
-        auto tok = st.s.substr(b, st.i - b);
-        double n = 0;
-        if (!parses_as_number(tok, n)) n = 0;
-        return make_literal(Value::number(n));
-    }
-};
-
-// ===========================================================================
-// Evaluator
-// ===========================================================================
-
-struct EvalCtx {
-    DialogWorld& world;
-    std::vector<std::string> pages;
-    std::string current;
-    bool end_game = false;
-    std::optional<DialogExit> exit;
-
-    void print(std::string_view s) { current.append(s); }
-
-    void br() { current.push_back('\n'); }
-
-    void page_break() {
-        flush();
-    }
-
-    void flush() {
-        auto is_ws_s = [](unsigned char c) {
-            return c == ' ' || c == '\t' || c == '\n' || c == '\r';
-        };
-        std::string_view v = current;
-        while (!v.empty() && is_ws_s(static_cast<unsigned char>(v.front())))
-            v.remove_prefix(1);
-        while (!v.empty() && is_ws_s(static_cast<unsigned char>(v.back())))
-            v.remove_suffix(1);
-        if (!v.empty()) pages.emplace_back(v);
-        current.clear();
-    }
-};
-
-Value eval_node(Node& n, EvalCtx& ctx);
-
-void eval_text(Node& n, EvalCtx& ctx) {
-    for (auto& p : n.parts) {
-        switch (p.op) {
-        case TextOp::Str:
-            ctx.print(p.text);
-            break;
-        case TextOp::Page:
-            ctx.page_break();
-            break;
-        case TextOp::Br:
-            ctx.br();
-            break;
-        case TextOp::Nested:
-            if (p.nested) {
-                Value v = eval_node(*p.nested, ctx);
-                if (!v.is_null()) ctx.print(v.as_string());
-            }
-            break;
+// Find matching '}' from an opening '{' at @p open (the '{' itself).
+std::size_t matching_brace(std::string_view s, std::size_t open) {
+    int depth = 0;
+    bool in_str = false;
+    for (std::size_t i = open; i < s.size(); ++i) {
+        if (s[i] == '"' && (i == 0 || s[i - 1] != '\\')) in_str = !in_str;
+        if (in_str) continue;
+        if (s[i] == '{') ++depth;
+        else if (s[i] == '}') {
+            --depth;
+            if (depth == 0) return i;
         }
     }
-}
-
-void eval_block(Node& n, EvalCtx& ctx) {
-    for (auto& kid : n.kids) {
-        if (!kid) continue;
-        if (kid->kind == NodeKind::Text) {
-            eval_text(*kid, ctx);
-        } else {
-            (void)eval_node(*kid, ctx);
-        }
-    }
-}
-
-Value apply_binary(std::string_view op, const Value& lhs, const Value& rhs) {
-    if (op == "=") return rhs;  // assignment handled by caller
-
-    if (op == "+") {
-        if (lhs.is_string() || rhs.is_string()) {
-            return Value::string(lhs.as_string() + rhs.as_string());
-        }
-        return Value::number(lhs.as_number() + rhs.as_number());
-    }
-    if (op == "-") return Value::number(lhs.as_number() - rhs.as_number());
-    if (op == "*") return Value::number(lhs.as_number() * rhs.as_number());
-    if (op == "/") {
-        const double d = rhs.as_number();
-        if (d == 0.0) return Value::number(0);
-        return Value::number(lhs.as_number() / d);
-    }
-
-    auto cmp = [&]() -> int {
-        if (lhs.is_number() && rhs.is_number()) {
-            const double a = lhs.as_number();
-            const double b = rhs.as_number();
-            if (a < b) return -1;
-            if (a > b) return 1;
-            return 0;
-        }
-        const std::string a = lhs.as_string();
-        const std::string b = rhs.as_string();
-        if (a < b) return -1;
-        if (a > b) return 1;
-        return 0;
-    };
-
-    const int c = cmp();
-    bool ok = false;
-    if (op == "==") ok = c == 0;
-    else if (op == "!=") ok = c != 0;
-    else if (op == "<")  ok = c < 0;
-    else if (op == ">")  ok = c > 0;
-    else if (op == "<=") ok = c <= 0;
-    else if (op == ">=") ok = c >= 0;
-    return Value::number(ok ? 1 : 0);
-}
-
-Value eval_call(Node& n, EvalCtx& ctx) {
-    std::vector<Value> args;
-    args.reserve(n.kids.size());
-    for (auto& k : n.kids) {
-        args.push_back(k ? eval_node(*k, ctx) : Value::null());
-    }
-
-    const std::string& fn = n.name;
-
-    if (fn == "print" || fn == "say") {
-        std::string out;
-        for (const auto& a : args) out += a.as_string();
-        ctx.print(out);
-        return Value::null();
-    }
-    if (fn == "br") {
-        ctx.br();
-        return Value::null();
-    }
-    if (fn == "p" || fn == "pg" || fn == "pagebreak") {
-        ctx.page_break();
-        return Value::null();
-    }
-    if (fn == "item") {
-        if (args.empty()) return Value::number(0);
-        const std::string id = args[0].as_string();
-        if (args.size() >= 2) {
-            const int count = static_cast<int>(args[1].as_number());
-            ctx.world.set_item(id, count);
-            return Value::number(count);
-        }
-        return Value::number(ctx.world.get_item(id));
-    }
-    if (fn == "end") {
-        ctx.end_game = true;
-        return Value::null();
-    }
-    if (fn == "exit") {
-        DialogExit ex;
-        if (args.size() == 1) {
-            // {exit "room,x,y"} or {exit "room,x,y,effect"}
-            std::string spec = args[0].as_string();
-            std::vector<std::string> parts;
-            std::string cur;
-            for (char c : spec) {
-                if (c == ',') {
-                    parts.push_back(std::move(cur));
-                    cur.clear();
-                } else {
-                    cur.push_back(c);
-                }
-            }
-            parts.push_back(std::move(cur));
-            if (!parts.empty()) ex.room_id = ctx.world.resolve_room(parts[0]);
-            if (parts.size() > 1) {
-                double v = 0;
-                if (parses_as_number(parts[1], v)) ex.x = static_cast<int>(v);
-            }
-            if (parts.size() > 2) {
-                double v = 0;
-                if (parses_as_number(parts[2], v)) ex.y = static_cast<int>(v);
-            }
-            if (parts.size() > 3) ex.effect = parts[3];
-        } else if (args.size() >= 3) {
-            ex.room_id = ctx.world.resolve_room(args[0].as_string());
-            ex.x = static_cast<int>(args[1].as_number());
-            ex.y = static_cast<int>(args[2].as_number());
-            if (args.size() >= 4) ex.effect = args[3].as_string();
-        }
-        ctx.exit = std::move(ex);
-        return Value::null();
-    }
-    if (is_visual_noop(fn)) return Value::null();
-
-    // Unknown function: ignore.
-    return Value::null();
-}
-
-void eval_list(Node& n, EvalCtx& ctx) {
-    if (n.items.empty()) return;
-
-    auto run_item = [&](ListItem& it) {
-        if (it.body) eval_node(*it.body, ctx);
-    };
-
-    auto cond_ok = [&](ListItem& it) -> bool {
-        if (it.is_else) return true;
-        if (!it.cond) return true;
-        return eval_node(*it.cond, ctx).is_truthy();
-    };
-
-    const int nitems = static_cast<int>(n.items.size());
-
-    if (n.list_kind == ListKind::Branch) {
-        for (auto& it : n.items) {
-            if (cond_ok(it)) {
-                run_item(it);
-                return;
-            }
-        }
-        return;
-    }
-
-    int idx = 0;
-    if (n.list_kind == ListKind::Sequence) {
-        idx = std::min(n.list_index, nitems - 1);
-        n.list_index = std::min(n.list_index + 1, nitems - 1);
-    } else if (n.list_kind == ListKind::Cycle) {
-        idx = n.list_index % nitems;
-        n.list_index = (n.list_index + 1) % nitems;
-    } else {  // Shuffle
-        if (n.shuffle_bag.empty()) {
-            n.shuffle_bag.resize(static_cast<std::size_t>(nitems));
-            for (int i = 0; i < nitems; ++i) n.shuffle_bag[static_cast<std::size_t>(i)] = i;
-            for (int i = nitems - 1; i > 0; --i) {
-                const int j = ctx.world.random_int(i + 1);
-                std::swap(n.shuffle_bag[static_cast<std::size_t>(i)],
-                          n.shuffle_bag[static_cast<std::size_t>(j)]);
-            }
-        }
-        idx = n.shuffle_bag.back();
-        n.shuffle_bag.pop_back();
-    }
-
-    if (idx >= 0 && idx < nitems) run_item(n.items[static_cast<std::size_t>(idx)]);
-}
-
-Value eval_node(Node& n, EvalCtx& ctx) {
-    switch (n.kind) {
-    case NodeKind::Literal:
-        return n.literal;
-    case NodeKind::Var:
-        return ctx.world.get_var(n.name);
-    case NodeKind::Call:
-        return eval_call(n, ctx);
-    case NodeKind::Binary: {
-        if (n.kids.size() < 2) return Value::null();
-        if (n.name == "=") {
-            Value rhs = eval_node(*n.kids[1], ctx);
-            if (n.kids[0]->kind == NodeKind::Var) {
-                ctx.world.set_var(n.kids[0]->name, rhs);
-            }
-            return rhs;
-        }
-        Value lhs = eval_node(*n.kids[0], ctx);
-        Value rhs = eval_node(*n.kids[1], ctx);
-        return apply_binary(n.name, lhs, rhs);
-    }
-    case NodeKind::Text:
-        eval_text(n, ctx);
-        return Value::null();
-    case NodeKind::Block:
-        eval_block(n, ctx);
-        return Value::null();
-    case NodeKind::List:
-        eval_list(n, ctx);
-        return Value::null();
-    }
-    return Value::null();
+    return std::string_view::npos;
 }
 
 } // namespace
 
-// ===========================================================================
-// Value
-// ===========================================================================
-
-Value Value::null() { return {}; }
-
-Value Value::number(double n) {
-    Value v;
-    v.kind_ = Kind::Number;
-    v.number_ = n;
-    return v;
+void DialogVM::reset() {
+    source_.clear();
+    dialog_id_.clear();
+    pos_ = 0;
+    active_ = false;
+    page_ready_ = false;
+    list_serial_ = 0;
+    spans_.clear();
+    fx_stack_.clear();
+    color_stack_.clear();
+    pending_.clear();
+    on_end = {};
+    world_ = {};
 }
 
-Value Value::string(std::string s) {
-    Value v;
-    v.kind_ = Kind::String;
-    v.string_ = std::move(s);
-    return v;
-}
-
-double Value::as_number() const {
-    if (kind_ == Kind::Number) return number_;
-    if (kind_ == Kind::Null) return 0;
-    double n = 0;
-    if (parses_as_number(string_, n)) return n;
-    return 0;
-}
-
-std::string Value::as_string() const {
-    if (kind_ == Kind::Null) return {};
-    if (kind_ == Kind::String) return string_;
-    if (std::isfinite(number_) && number_ == std::floor(number_) &&
-        std::abs(number_) < 1e15) {
-        return std::to_string(static_cast<long long>(number_));
+void DialogVM::start(std::string source, DialogWorld world,
+                     std::string dialog_id, std::function<void()> on_end_cb) {
+    reset();
+    source_ = std::move(source);
+    dialog_id_ = std::move(dialog_id);
+    world_ = std::move(world);
+    on_end = std::move(on_end_cb);
+    active_ = true;
+    run_until_pause();
+    if (!page_ready_ && spans_.empty()) {
+        // No text — still fire on_end (empty dialog).
+        active_ = false;
+        auto cb = std::move(on_end);
+        on_end = {};
+        if (cb) cb();
     }
-    std::ostringstream os;
-    os << number_;
-    return os.str();
 }
 
-bool Value::is_truthy() const {
-    if (kind_ == Kind::Null) return false;
-    if (kind_ == Kind::Number) return number_ != 0;
-    if (string_.empty() || string_ == "0" || string_ == "false") return false;
-    double n = 0;
-    if (parses_as_number(string_, n)) return n != 0;
+bool DialogVM::continue_page() {
+    if (!active_) return false;
+    spans_.clear();
+    page_ready_ = false;
+    run_until_pause();
+    if (!page_ready_ && spans_.empty()) {
+        active_ = false;
+        auto cb = std::move(on_end);
+        on_end = {};
+        if (cb) cb();
+        return false;
+    }
     return true;
 }
 
-// ===========================================================================
-// Public API
-// ===========================================================================
+void DialogVM::new_page() {
+    page_ready_ = true;
+}
 
-struct DialogScript::Impl {
-    std::unique_ptr<Node> root;
-};
+void DialogVM::emit_text(std::string_view text) {
+    if (text.empty()) return;
+    TextSpan sp;
+    sp.text = std::string(text);
+    sp.effect = current_fx();
+    sp.color = current_color();
+    spans_.push_back(std::move(sp));
+}
 
-DialogScript::DialogScript() : impl_(std::make_unique<Impl>()) {}
-DialogScript::DialogScript(DialogScript&&) noexcept = default;
-DialogScript& DialogScript::operator=(DialogScript&&) noexcept = default;
-DialogScript::~DialogScript() = default;
+void DialogVM::emit_drawing(const TileFrame& frame, std::uint8_t color) {
+    TextSpan sp;
+    sp.is_drawing = true;
+    sp.drawing = frame;
+    sp.drawing_color = color;
+    spans_.push_back(std::move(sp));
+}
+
+void DialogVM::run_until_pause() {
+    if (!pending_.empty()) {
+        std::string rest = std::move(pending_);
+        exec_chunk(rest, false);
+        if (page_ready_) return;
+    }
+
+    const std::size_t n = source_.size();
+    bool last_was_string = false;
+
+    auto skip_ws = [&] {
+        while (pos_ < n && (source_[pos_] == ' ' || source_[pos_] == '\t' ||
+                            source_[pos_] == '\n' || source_[pos_] == '\r')) {
+            ++pos_;
+        }
+    };
+
+    while (pos_ < n && !page_ready_) {
+        skip_ws();
+        if (pos_ >= n) break;
+
+        // Triple-quoted block.
+        if (pos_ + 2 < n && source_[pos_] == '"' && source_[pos_ + 1] == '"' &&
+            source_[pos_ + 2] == '"') {
+            if (last_was_string && !spans_.empty()) {
+                new_page();
+                break;
+            }
+            pos_ += 3;
+            if (pos_ < n && (source_[pos_] == '\n' || source_[pos_] == '\r')) {
+                if (source_[pos_] == '\r' && pos_ + 1 < n && source_[pos_ + 1] == '\n')
+                    pos_ += 2;
+                else ++pos_;
+            }
+            const std::size_t start = pos_;
+            while (pos_ + 2 < n &&
+                   !(source_[pos_] == '"' && source_[pos_ + 1] == '"' &&
+                     source_[pos_ + 2] == '"')) {
+                ++pos_;
+            }
+            auto body = std::string_view(source_).substr(start, pos_ - start);
+            if (!body.empty() && (body.back() == '\n' || body.back() == '\r')) {
+                body.remove_suffix(1);
+                if (!body.empty() && body.back() == '\r') body.remove_suffix(1);
+            }
+            exec_chunk(body, false);
+            if (pos_ + 2 < n) pos_ += 3;
+            else pos_ = n;
+            last_was_string = true;
+            if (page_ready_) break;
+            continue;
+        }
+
+        if (source_[pos_] == '"') {
+            if (last_was_string && !spans_.empty()) {
+                new_page();
+                break;
+            }
+            ++pos_;
+            const std::size_t start = pos_;
+            int depth = 0;
+            while (pos_ < n) {
+                if (source_[pos_] == '{' ) ++depth;
+                else if (source_[pos_] == '}' && depth > 0) --depth;
+                else if (source_[pos_] == '"' && depth == 0) break;
+                ++pos_;
+            }
+            auto body = std::string_view(source_).substr(start, pos_ - start);
+            if (pos_ < n) ++pos_;
+            exec_chunk(body, false);
+            last_was_string = true;
+            if (page_ready_) break;
+            continue;
+        }
+
+        if (source_[pos_] == '{') {
+            const auto end = matching_brace(source_, pos_);
+            if (end == std::string_view::npos) {
+                ++pos_;
+                continue;
+            }
+            auto inner = trim_sv(std::string_view(source_).substr(pos_ + 1, end - pos_ - 1));
+            pos_ = end + 1;
+            last_was_string = false;
+            auto ident = first_ident(inner);
+            const bool is_list =
+                ident == "sequence" || ident == "cycle" || ident == "shuffle" ||
+                inner.find('\n') != std::string_view::npos ||
+                (!inner.empty() && inner[0] == '-');
+            if (is_list) {
+                exec_block(inner);
+            } else {
+                exec_tag(inner);
+            }
+            continue;
+        }
+
+        // Unquoted run (endings, title).
+        const std::size_t start = pos_;
+        while (pos_ < n && source_[pos_] != '"' && source_[pos_] != '{') ++pos_;
+        auto run = trim_sv(std::string_view(source_).substr(start, pos_ - start));
+        if (!run.empty()) {
+            if (last_was_string && !spans_.empty()) {
+                pos_ = start;
+                new_page();
+                break;
+            }
+            exec_chunk(run, false);
+            last_was_string = true;
+        }
+    }
+}
+
+void DialogVM::exec_chunk(std::string_view chunk, bool /*implicit_page*/) {
+    std::size_t i = 0;
+    while (i < chunk.size() && !page_ready_) {
+        if (chunk[i] == '"') {
+            ++i;
+            const std::size_t start = i;
+            while (i < chunk.size() && chunk[i] != '"') ++i;
+            auto body = chunk.substr(start, i - start);
+            if (i < chunk.size()) ++i;
+            exec_chunk(body, false);
+            continue;
+        }
+        if (chunk[i] == '{') {
+            const auto end = matching_brace(chunk, i);
+            if (end == std::string_view::npos) {
+                emit_text(chunk.substr(i, 1));
+                ++i;
+                continue;
+            }
+            auto inner = trim_sv(chunk.substr(i + 1, end - i - 1));
+            i = end + 1;
+            if (inner.find('\n') != std::string_view::npos ||
+                (!inner.empty() && inner[0] == '-')) {
+                exec_block(inner);
+            } else {
+                const bool paused = exec_tag(inner);
+                (void)paused;
+                if (inner == "p" || inner == "pg") {
+                    pending_ = std::string(chunk.substr(i));
+                    return;
+                }
+            }
+            continue;
+        }
+        if (chunk[i] == '\n' || chunk[i] == '\r') {
+            if (chunk[i] == '\r' && i + 1 < chunk.size() && chunk[i + 1] == '\n')
+                i += 2;
+            else
+                ++i;
+            std::size_t j = i;
+            while (j < chunk.size() && (chunk[j] == ' ' || chunk[j] == '\t')) ++j;
+            if (j < chunk.size() && (chunk[j] == '\n' || chunk[j] == '\r') &&
+                !spans_.empty()) {
+                auto rest = chunk.substr(j);
+                while (!rest.empty() &&
+                       (rest.front() == '\n' || rest.front() == '\r' ||
+                        rest.front() == ' ' || rest.front() == '\t')) {
+                    rest.remove_prefix(1);
+                }
+                pending_ = std::string(rest);
+                new_page();
+                return;
+            }
+            i = j;
+            continue;
+        }
+        const std::size_t start = i;
+        while (i < chunk.size() && chunk[i] != '{' && chunk[i] != '"' &&
+               chunk[i] != '\n' && chunk[i] != '\r') {
+            ++i;
+        }
+        emit_text(chunk.substr(start, i - start));
+    }
+}
+
+bool DialogVM::exec_tag(std::string_view tag) {
+    tag = trim_sv(tag);
+    if (tag.empty()) return false;
+
+    // Close-effect tags.
+    if (tag == "/wvy" || tag == "/shk" || tag == "/rbw") {
+        if (!fx_stack_.empty()) fx_stack_.pop_back();
+        return true;
+    }
+    if (tag == "/clr" || tag == "/clr1" || tag == "/clr2" || tag == "/clr3") {
+        if (!color_stack_.empty()) color_stack_.pop_back();
+        return true;
+    }
+
+    if (tag == "br") {
+        emit_text("\n");
+        return true;
+    }
+    if (tag == "p" || tag == "pg") {
+        new_page();
+        return true;
+    }
+
+    auto toggle_fx = [&](GlyphEffect e) {
+        auto it = std::find(fx_stack_.rbegin(), fx_stack_.rend(), e);
+        if (it != fx_stack_.rend()) {
+            fx_stack_.erase(std::next(it).base());
+        } else {
+            fx_stack_.push_back(e);
+        }
+    };
+    auto toggle_color = [&](int c) {
+        auto it = std::find(color_stack_.rbegin(), color_stack_.rend(), c);
+        if (it != color_stack_.rend()) {
+            color_stack_.erase(std::next(it).base());
+        } else {
+            color_stack_.push_back(c);
+        }
+    };
+
+    if (tag == "wvy") { toggle_fx(GlyphEffect::Wavy); return true; }
+    if (tag == "shk") { toggle_fx(GlyphEffect::Shaky); return true; }
+    if (tag == "rbw") { toggle_fx(GlyphEffect::Rainbow); return true; }
+    if (tag == "clr" || tag == "clr1") { toggle_color(1); return true; }
+    if (tag == "clr2") { toggle_color(2); return true; }
+    if (tag == "clr3") { toggle_color(3); return true; }
+    if (tag == "end") {
+        if (world_.do_end) world_.do_end();
+        return true;
+    }
+    if (tag == "lock") {
+        if (world_.do_lock) world_.do_lock();
+        return true;
+    }
+
+    // Assignment: `{name = expr}` — left side must be a single identifier.
+    const auto eq = tag.find('=');
+    if (eq != std::string_view::npos && eq > 0 &&
+        tag.find("==") == std::string_view::npos &&
+        tag.find("!=") == std::string_view::npos &&
+        tag.find("<=") == std::string_view::npos &&
+        tag.find(">=") == std::string_view::npos) {
+        bool is_cmp = false;
+        if (eq + 1 < tag.size() && tag[eq + 1] == '=') is_cmp = true;
+        if (eq > 0 && (tag[eq - 1] == '<' || tag[eq - 1] == '>' || tag[eq - 1] == '!'))
+            is_cmp = true;
+        auto name = trim_sv(tag.substr(0, eq));
+        if (!is_cmp && first_ident(name).size() == name.size()) {
+            auto expr = trim_sv(tag.substr(eq + 1));
+            auto val = eval_expr(expr);
+            if (world_.set_var) world_.set_var(name, val);
+            return true;
+        }
+    }
+
+    auto ident = first_ident(tag);
+    auto rest = trim_sv(tag.substr(ident.size()));
+    auto args = split_args(rest);
+
+    if (ident == "clr" && !args.empty()) {
+        int idx = 2;
+        try { idx = std::stoi(unquote(args[0])); } catch (...) {}
+        color_stack_.push_back(idx);
+        return true;
+    }
+
+    auto result = call_func(ident, args, /*as_statement=*/true);
+    // Functions that produce a printable value (print / item / bare var).
+    if (ident == "print" || ident == "say") {
+        emit_text(result.as_string());
+        return true;
+    }
+    if (ident.empty()) return false;
+
+    // Bare variable / unknown tag: print its value (empty if unset).
+    if (ident != "item" && ident != "exit" && ident != "ava" && ident != "pal" &&
+        ident != "tune" && ident != "blip" && ident != "printSprite" &&
+        ident != "printTile" && ident != "printItem" && ident != "end" &&
+        ident != "lock" && ident != "property" && ident != "drwt" &&
+        ident != "drws" && ident != "drwi") {
+        // Could be `{name}` — print variable.
+        if (args.empty()) {
+            emit_text(result.as_string());
+        }
+    } else if (ident == "item" && args.size() <= 1) {
+        // `{item id}` in text: print count.
+        emit_text(result.as_string());
+    }
+    return true;
+}
+
+void DialogVM::exec_block(std::string_view inner) {
+    inner = trim_sv(inner);
+
+    enum class Mode { Sequence, Cycle, Shuffle, Conditional };
+    Mode mode = Mode::Sequence;
+    std::string_view body = inner;
+
+    auto ident = first_ident(inner);
+    if (ident == "sequence") {
+        mode = Mode::Sequence;
+        body = trim_sv(inner.substr(ident.size()));
+    } else if (ident == "cycle") {
+        mode = Mode::Cycle;
+        body = trim_sv(inner.substr(ident.size()));
+    } else if (ident == "shuffle") {
+        mode = Mode::Shuffle;
+        body = trim_sv(inner.substr(ident.size()));
+    }
+
+    struct Item {
+        std::string condition;  // empty = always
+        bool is_else = false;
+        std::string body;
+    };
+    std::vector<Item> items;
+    bool any_cond = false;
+
+    // Split on lines starting with '-' (list items) or treat as a code block.
+    std::string body_str(body);
+    std::istringstream iss(body_str);
+    std::string line;
+    Item cur;
+    bool in_item = false;
+    auto flush = [&] {
+        if (in_item) {
+            cur.body = std::string(trim_sv(cur.body));
+            items.push_back(std::move(cur));
+            cur = {};
+        }
+        in_item = false;
+    };
+
+    while (std::getline(iss, line)) {
+        auto t = trim_sv(line);
+        if (t.starts_with("-")) {
+            flush();
+            in_item = true;
+            auto rest = trim_sv(t.substr(1));
+            // `cond ?` prefix
+            auto q = rest.find('?');
+            if (first_ident(rest) == "else") {
+                cur.is_else = true;
+                any_cond = true;
+                auto after = trim_sv(rest.substr(4));
+                if (!after.empty() && after[0] == '?') after = trim_sv(after.substr(1));
+                cur.body = std::string(after) + "\n";
+            } else if (q != std::string_view::npos) {
+                cur.condition = std::string(trim_sv(rest.substr(0, q)));
+                cur.body = std::string(trim_sv(rest.substr(q + 1))) + "\n";
+                any_cond = true;
+            } else {
+                cur.body = std::string(rest) + "\n";
+            }
+        } else if (in_item) {
+            cur.body += line;
+            cur.body += '\n';
+        } else if (!t.empty()) {
+            // Bare statements inside `{ a = 1 \n "hi" }`
+            exec_chunk(t, false);
+        }
+    }
+    flush();
+
+    if (items.empty()) return;
+
+    if (any_cond) mode = Mode::Conditional;
+
+    int chosen = -1;
+    if (mode == Mode::Conditional) {
+        bool matched = false;
+        int else_i = -1;
+        for (int i = 0; i < static_cast<int>(items.size()); ++i) {
+            if (items[static_cast<std::size_t>(i)].is_else) {
+                else_i = i;
+                continue;
+            }
+            if (items[static_cast<std::size_t>(i)].condition.empty() ||
+                eval_expr(items[static_cast<std::size_t>(i)].condition).is_truthy()) {
+                chosen = i;
+                matched = true;
+                break;
+            }
+        }
+        if (!matched) chosen = else_i;
+    } else {
+        const std::string key = dialog_id_ + "#" + std::to_string(list_serial_++) +
+                                "#" + std::string(ident);
+        const int n = static_cast<int>(items.size());
+        if (mode == Mode::Cycle) {
+            int& cursor = list_cursors[key];
+            chosen = cursor % n;
+            ++cursor;
+        } else if (mode == Mode::Shuffle) {
+            auto& order = shuffle_orders[key];
+            if (order.empty()) {
+                order.resize(static_cast<std::size_t>(n));
+                std::iota(order.begin(), order.end(), 0);
+                static thread_local std::mt19937 rng{std::random_device{}()};
+                std::shuffle(order.begin(), order.end(), rng);
+            }
+            chosen = order.front();
+            order.erase(order.begin());
+        } else {  // sequence: first unused, then stay on last
+            int& cursor = list_cursors[key];
+            chosen = std::min(cursor, n - 1);
+            if (cursor < n) ++cursor;
+        }
+    }
+
+    if (chosen < 0 || chosen >= static_cast<int>(items.size())) return;
+    exec_chunk(items[static_cast<std::size_t>(chosen)].body, false);
+}
+
+DialogValue DialogVM::eval_expr(std::string_view expr) {
+    expr = trim_sv(expr);
+    if (expr.empty()) return DialogValue::from_number(0);
+
+    // Expand {tags} so `{has} == 1` works as a condition.
+    if (expr.find('{') != std::string_view::npos) {
+        std::string expanded;
+        for (std::size_t i = 0; i < expr.size();) {
+            if (expr[i] == '{') {
+                auto end = matching_brace(expr, i);
+                if (end == std::string_view::npos) {
+                    expanded.push_back(expr[i++]);
+                    continue;
+                }
+                auto inner = trim_sv(expr.substr(i + 1, end - i - 1));
+                expanded += eval_expr(inner).as_string();
+                i = end + 1;
+            } else {
+                expanded.push_back(expr[i++]);
+            }
+        }
+        if (expanded != expr) return eval_expr(expanded);
+    }
+
+    // Comparisons (lowest precedence among binary ops we care about).
+    auto cmp_at = [&](std::string_view op) -> std::size_t {
+        int depth = 0;
+        bool in_str = false;
+        for (std::size_t i = 0; i + op.size() <= expr.size(); ++i) {
+            if (expr[i] == '"') in_str = !in_str;
+            if (in_str) continue;
+            if (expr[i] == '(') ++depth;
+            else if (expr[i] == ')') --depth;
+            if (depth == 0 && expr.substr(i, op.size()) == op) return i;
+        }
+        return std::string_view::npos;
+    };
+
+    auto do_cmp = [&](auto&& pred, std::string_view op) -> DialogValue {
+        auto at = cmp_at(op);
+        auto l = eval_expr(expr.substr(0, at));
+        auto r = eval_expr(expr.substr(at + op.size()));
+        return DialogValue::from_number(pred(l, r) ? 1 : 0);
+    };
+
+    if (cmp_at("==") != std::string_view::npos) {
+        return do_cmp([](const DialogValue& a, const DialogValue& b) {
+            if (a.kind == DialogValue::Kind::String || b.kind == DialogValue::Kind::String)
+                return a.as_string() == b.as_string();
+            return a.as_number() == b.as_number();
+        }, "==");
+    }
+    if (cmp_at("!=") != std::string_view::npos) {
+        return do_cmp([](const DialogValue& a, const DialogValue& b) {
+            if (a.kind == DialogValue::Kind::String || b.kind == DialogValue::Kind::String)
+                return a.as_string() != b.as_string();
+            return a.as_number() != b.as_number();
+        }, "!=");
+    }
+    if (cmp_at(">=") != std::string_view::npos) {
+        return do_cmp([](const DialogValue& a, const DialogValue& b) {
+            return a.as_number() >= b.as_number();
+        }, ">=");
+    }
+    if (cmp_at("<=") != std::string_view::npos) {
+        return do_cmp([](const DialogValue& a, const DialogValue& b) {
+            return a.as_number() <= b.as_number();
+        }, "<=");
+    }
+    if (cmp_at(">") != std::string_view::npos) {
+        return do_cmp([](const DialogValue& a, const DialogValue& b) {
+            return a.as_number() > b.as_number();
+        }, ">");
+    }
+    if (cmp_at("<") != std::string_view::npos) {
+        return do_cmp([](const DialogValue& a, const DialogValue& b) {
+            return a.as_number() < b.as_number();
+        }, "<");
+    }
+
+    auto bin_at = [&](char op) -> std::size_t {
+        int depth = 0;
+        bool in_str = false;
+        for (std::size_t i = 0; i < expr.size(); ++i) {
+            if (expr[i] == '"') in_str = !in_str;
+            if (in_str) continue;
+            if (expr[i] == '(') ++depth;
+            else if (expr[i] == ')') --depth;
+            if (depth == 0 && expr[i] == op && i > 0) return i;
+        }
+        return std::string_view::npos;
+    };
+
+    if (auto at = bin_at('+'); at != std::string_view::npos) {
+        return DialogValue::from_number(
+            eval_expr(expr.substr(0, at)).as_number() +
+            eval_expr(expr.substr(at + 1)).as_number());
+    }
+    if (auto at = bin_at('-'); at != std::string_view::npos) {
+        return DialogValue::from_number(
+            eval_expr(expr.substr(0, at)).as_number() -
+            eval_expr(expr.substr(at + 1)).as_number());
+    }
+    if (auto at = bin_at('*'); at != std::string_view::npos) {
+        return DialogValue::from_number(
+            eval_expr(expr.substr(0, at)).as_number() *
+            eval_expr(expr.substr(at + 1)).as_number());
+    }
+    if (auto at = bin_at('/'); at != std::string_view::npos) {
+        double d = eval_expr(expr.substr(at + 1)).as_number();
+        return DialogValue::from_number(
+            d == 0 ? 0 : eval_expr(expr.substr(0, at)).as_number() / d);
+    }
+
+    if (expr.front() == '(' && expr.back() == ')') {
+        return eval_expr(expr.substr(1, expr.size() - 2));
+    }
+    if (expr.front() == '"') {
+        return DialogValue::from_string(unquote(expr));
+    }
+    if (looks_number(expr)) {
+        try { return DialogValue::from_number(std::stod(std::string(expr))); }
+        catch (...) { return DialogValue::from_number(0); }
+    }
+
+    auto ident = first_ident(expr);
+    auto rest = trim_sv(expr.substr(ident.size()));
+    if (ident == "true" && rest.empty()) return DialogValue::from_number(1);
+    if (ident == "false" && rest.empty()) return DialogValue::from_number(0);
+    auto args = split_args(rest);
+    return call_func(ident, args, /*as_statement=*/false);
+}
+
+DialogValue DialogVM::call_func(std::string_view name,
+                                const std::vector<std::string>& args,
+                                bool as_statement) {
+    auto id_of = [&](std::size_t i) -> std::string {
+        if (i >= args.size()) return {};
+        return unquote(args[i]);
+    };
+
+    if (name == "print" || name == "say") {
+        if (args.empty()) return DialogValue::from_string({});
+        std::string joined;
+        for (std::size_t i = 0; i < args.size(); ++i) {
+            if (i) joined += ' ';
+            joined += args[i];
+        }
+        return eval_expr(joined);
+    }
+    if (name == "item") {
+        const std::string id = id_of(0);
+        if (args.size() >= 2) {
+            int val = static_cast<int>(eval_expr(args[1]).as_number());
+            if (val < 0) val = 0;
+            if (world_.set_item) world_.set_item(id, val);
+            return DialogValue::from_number(val);
+        }
+        int count = world_.item_count ? world_.item_count(id) : 0;
+        return DialogValue::from_number(count);
+    }
+    if (name == "property") {
+        std::vector<std::string> filtered;
+        filtered.reserve(args.size());
+        for (const auto& a : args) {
+            if (a != "=") filtered.push_back(a);
+        }
+        const std::string pname = filtered.empty() ? std::string{} : unquote(filtered[0]);
+        if (filtered.size() >= 2) {
+            auto val = eval_expr(filtered[1]);
+            if (world_.set_property) world_.set_property(pname, val);
+            return val;
+        }
+        if (world_.get_property) return world_.get_property(pname);
+        return DialogValue::from_number(0);
+    }
+    if (name == "ava") {
+        if (world_.set_avatar) world_.set_avatar(id_of(0));
+        return DialogValue::from_string(id_of(0));
+    }
+    if (name == "pal") {
+        if (world_.set_palette) world_.set_palette(id_of(0));
+        return DialogValue::from_string(id_of(0));
+    }
+    if (name == "tune") {
+        if (world_.set_tune) world_.set_tune(id_of(0));
+        return DialogValue::from_string(id_of(0));
+    }
+    if (name == "blip") {
+        if (world_.play_blip) world_.play_blip(id_of(0));
+        return DialogValue::from_string(id_of(0));
+    }
+    if (name == "exit") {
+        std::string room = id_of(0);
+        int x = args.size() > 1 ? static_cast<int>(eval_expr(args[1]).as_number()) : 0;
+        int y = args.size() > 2 ? static_cast<int>(eval_expr(args[2]).as_number()) : 0;
+        std::string fx = args.size() > 3 ? id_of(3) : std::string{};
+        if (world_.do_exit) world_.do_exit(room, x, y, fx);
+        return DialogValue::from_number(1);
+    }
+    if (name == "end") {
+        if (world_.do_end) world_.do_end();
+        return DialogValue::from_number(1);
+    }
+    if (name == "lock") {
+        if (world_.do_lock) world_.do_lock();
+        return DialogValue::from_number(1);
+    }
+    if (name == "printSprite" || name == "printTile" || name == "printItem" ||
+        name == "drws" || name == "drwt" || name == "drwi") {
+        const std::string id = id_of(0);
+        int frame_i = world_.anim_frame ? world_.anim_frame() : 0;
+        const bool spr = name == "printSprite" || name == "drws";
+        const bool til = name == "printTile" || name == "drwt";
+        const bool itm = name == "printItem" || name == "drwi";
+        if (spr && world_.find_sprite) {
+            if (const Sprite* s = world_.find_sprite(id); s && !s->frames.empty()) {
+                emit_drawing(s->frames[static_cast<std::size_t>(frame_i) % s->frames.size()],
+                             s->color_index);
+            }
+        } else if (til && world_.find_tile) {
+            if (const Tile* t = world_.find_tile(id); t && !t->frames.empty()) {
+                emit_drawing(t->frames[static_cast<std::size_t>(frame_i) % t->frames.size()],
+                             t->color_index);
+            }
+        } else if (itm && world_.find_item) {
+            if (const Item* it = world_.find_item(id); it && !it->frames.empty()) {
+                emit_drawing(it->frames[static_cast<std::size_t>(frame_i) % it->frames.size()],
+                             it->color_index);
+            }
+        }
+        return DialogValue::from_string({});
+    }
+
+    (void)as_statement;
+    if (world_.get_var) return world_.get_var(name);
+    return DialogValue::from_string({});
+}
 
 DialogScript parse_dialog_script(std::string_view source) {
-    Parser p{source};
     DialogScript script;
-    script.impl_->root = p.parse_script();
+    script.source = std::string(source);
     return script;
 }
 
-DialogResult run_dialog_script(DialogScript& script, DialogWorld& world) {
+DialogResult run_dialog_script(DialogScript& script, DialogWorld world) {
     DialogResult result;
-    if (!script.impl_ || !script.impl_->root) return result;
-
-    EvalCtx ctx{world, {}, {}, false, {}};
-    eval_node(*script.impl_->root, ctx);
-    ctx.flush();
-
-    result.pages = std::move(ctx.pages);
-    result.end_game = ctx.end_game;
-    result.exit = std::move(ctx.exit);
+    auto prev_end = world.do_end;
+    auto prev_exit = world.do_exit;
+    world.do_end = [&] {
+        result.end_game = true;
+        if (prev_end) prev_end();
+    };
+    world.do_exit = [&](std::string room, int x, int y, std::string fx) {
+        result.exit = DialogExit{room, x, y, fx};
+        if (prev_exit) prev_exit(std::move(room), x, y, std::move(fx));
+    };
+    script.vm.start(script.source, std::move(world), "compat", {});
+    if (script.vm.active()) {
+        result.pages.push_back(script.vm.plain_text());
+        while (script.vm.continue_page()) {
+            result.pages.push_back(script.vm.plain_text());
+        }
+    } else if (!script.vm.plain_text().empty()) {
+        result.pages.push_back(script.vm.plain_text());
+    }
     return result;
 }
 

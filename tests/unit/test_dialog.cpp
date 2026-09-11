@@ -12,45 +12,34 @@
 
 namespace {
 
-class TestWorld final : public citsy::DialogWorld {
-public:
+struct TestWorld {
     std::map<std::string, citsy::Value> vars;
     std::unordered_map<std::string, int> items;
-    int rand_cursor = 0;
-    std::vector<int> rand_seq;
 
-    citsy::Value get_var(std::string_view name) const override {
-        auto it = vars.find(std::string(name));
-        if (it == vars.end()) return citsy::Value::number(0);
-        return it->second;
-    }
-    void set_var(std::string_view name, citsy::Value v) override {
-        vars[std::string(name)] = std::move(v);
-    }
-    int get_item(std::string_view id) const override {
-        auto it = items.find(std::string(id));
-        return it == items.end() ? 0 : it->second;
-    }
-    void set_item(std::string_view id, int count) override {
-        items[std::string(id)] = count;
-    }
-    std::string resolve_room(std::string_view id) const override {
-        return std::string(id);
-    }
-    int random_int(int n) override {
-        if (n <= 1) return 0;
-        if (!rand_seq.empty()) {
-            int v = rand_seq[static_cast<std::size_t>(rand_cursor) % rand_seq.size()];
-            ++rand_cursor;
-            return v % n;
-        }
-        return 0;
+    citsy::DialogWorld bind() {
+        citsy::DialogWorld w;
+        w.get_var = [this](std::string_view name) {
+            auto it = vars.find(std::string(name));
+            if (it == vars.end()) return citsy::Value::from_number(0);
+            return it->second;
+        };
+        w.set_var = [this](std::string_view name, const citsy::DialogValue& v) {
+            vars[std::string(name)] = v;
+        };
+        w.item_count = [this](std::string_view id) {
+            auto it = items.find(std::string(id));
+            return it == items.end() ? 0 : it->second;
+        };
+        w.set_item = [this](std::string_view id, int count) {
+            items[std::string(id)] = count;
+        };
+        return w;
     }
 };
 
-citsy::DialogResult run(std::string_view src, TestWorld& w) {
+citsy::DialogResult run(std::string_view src, TestWorld& tw) {
     auto script = citsy::parse_dialog_script(src);
-    return citsy::run_dialog_script(script, w);
+    return citsy::run_dialog_script(script, tw.bind());
 }
 
 } // namespace
@@ -106,7 +95,7 @@ TEST_CASE("dialog: empty source yields no pages", "[dialog]") {
 
 TEST_CASE("dialog: print interpolates a variable", "[dialog][script]") {
     TestWorld w;
-    w.vars["name"] = citsy::Value::string("ada");
+    w.vars["name"] = citsy::Value::from_string("ada");
     auto r = run(R"("Hello {print name}!")", w);
     REQUIRE(r.pages.size() == 1);
     CHECK(r.pages[0] == "Hello ada!");
@@ -114,7 +103,7 @@ TEST_CASE("dialog: print interpolates a variable", "[dialog][script]") {
 
 TEST_CASE("dialog: assignment updates a variable", "[dialog][script]") {
     TestWorld w;
-    w.vars["score"] = citsy::Value::number(0);
+    w.vars["score"] = citsy::Value::from_number(0);
     auto r = run("{score = 5}\"{print score}\"", w);
     REQUIRE(r.pages.size() == 1);
     CHECK(r.pages[0] == "5");
@@ -123,14 +112,14 @@ TEST_CASE("dialog: assignment updates a variable", "[dialog][script]") {
 
 TEST_CASE("dialog: arithmetic assignment", "[dialog][script]") {
     TestWorld w;
-    w.vars["n"] = citsy::Value::number(2);
+    w.vars["n"] = citsy::Value::from_number(2);
     run("{n = n + 1}", w);
     CHECK(w.vars["n"].as_number() == 3);
 }
 
 TEST_CASE("dialog: branching list picks the matching arm", "[dialog][script]") {
     TestWorld w;
-    w.vars["score"] = citsy::Value::number(1);
+    w.vars["score"] = citsy::Value::from_number(1);
     auto r = run(R"({
   - score == 1 ?
     "one"
@@ -140,14 +129,14 @@ TEST_CASE("dialog: branching list picks the matching arm", "[dialog][script]") {
     REQUIRE(r.pages.size() == 1);
     CHECK(r.pages[0] == "one");
 
-    w.vars["score"] = citsy::Value::number(0);
+    w.vars["score"] = citsy::Value::from_number(0);
     auto script = citsy::parse_dialog_script(R"({
   - score == 1 ?
     "one"
   - else ?
     "other"
 })");
-    auto r2 = citsy::run_dialog_script(script, w);
+    auto r2 = citsy::run_dialog_script(script, w.bind());
     REQUIRE(r2.pages.size() == 1);
     CHECK(r2.pages[0] == "other");
 }
@@ -173,10 +162,10 @@ TEST_CASE("dialog: sequence advances then sticks on last", "[dialog][script]") {
   - "b"
   - "c"
 })");
-    CHECK(citsy::run_dialog_script(script, w).pages == std::vector<std::string>{"a"});
-    CHECK(citsy::run_dialog_script(script, w).pages == std::vector<std::string>{"b"});
-    CHECK(citsy::run_dialog_script(script, w).pages == std::vector<std::string>{"c"});
-    CHECK(citsy::run_dialog_script(script, w).pages == std::vector<std::string>{"c"});
+    CHECK(citsy::run_dialog_script(script, w.bind()).pages == std::vector<std::string>{"a"});
+    CHECK(citsy::run_dialog_script(script, w.bind()).pages == std::vector<std::string>{"b"});
+    CHECK(citsy::run_dialog_script(script, w.bind()).pages == std::vector<std::string>{"c"});
+    CHECK(citsy::run_dialog_script(script, w.bind()).pages == std::vector<std::string>{"c"});
 }
 
 TEST_CASE("dialog: cycle wraps around", "[dialog][script]") {
@@ -185,14 +174,13 @@ TEST_CASE("dialog: cycle wraps around", "[dialog][script]") {
   - "a"
   - "b"
 })");
-    CHECK(citsy::run_dialog_script(script, w).pages == std::vector<std::string>{"a"});
-    CHECK(citsy::run_dialog_script(script, w).pages == std::vector<std::string>{"b"});
-    CHECK(citsy::run_dialog_script(script, w).pages == std::vector<std::string>{"a"});
+    CHECK(citsy::run_dialog_script(script, w.bind()).pages == std::vector<std::string>{"a"});
+    CHECK(citsy::run_dialog_script(script, w.bind()).pages == std::vector<std::string>{"b"});
+    CHECK(citsy::run_dialog_script(script, w.bind()).pages == std::vector<std::string>{"a"});
 }
 
 TEST_CASE("dialog: shuffle visits every item before repeating", "[dialog][script]") {
     TestWorld w;
-    w.rand_seq = {0, 0, 0};  // Fisher-Yates with j=0 each swap → reverse order
     auto script = citsy::parse_dialog_script(R"({shuffle
   - "a"
   - "b"
@@ -200,7 +188,7 @@ TEST_CASE("dialog: shuffle visits every item before repeating", "[dialog][script
 })");
     std::vector<std::string> seen;
     for (int i = 0; i < 3; ++i) {
-        auto r = citsy::run_dialog_script(script, w);
+        auto r = citsy::run_dialog_script(script, w.bind());
         REQUIRE(r.pages.size() == 1);
         seen.push_back(r.pages[0]);
     }
@@ -252,7 +240,7 @@ TEST_CASE("dialog: item comparison in a nested branch", "[dialog][script]") {
 
     w.items["Spores"] = 6;
     auto script = citsy::parse_dialog_script(src);
-    auto r2 = citsy::run_dialog_script(script, w);
+    auto r2 = citsy::run_dialog_script(script, w.bind());
     REQUIRE(r2.pages.size() == 1);
     CHECK(r2.pages[0] == "thanks");
 }
