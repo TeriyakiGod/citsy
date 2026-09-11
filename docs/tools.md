@@ -48,17 +48,12 @@ Set these at configure time with `-DOPTION=value`:
 |---|---|---|
 | `CITSY_BUILD_TESTS` | `ON` | Build `citsy_tests` and register CTest entries |
 | `CITSY_BUILD_EXAMPLES` | `ON` | Build `minimal_example` |
-| `CITSY_BUILD_RAYLIB_BACKEND` | `OFF` | Build the optional raylib reference player |
 
 Examples:
 
 ```bash
 # Library only — skip tests and examples
 cmake -B build -DCITSY_BUILD_TESTS=OFF -DCITSY_BUILD_EXAMPLES=OFF
-
-# Include the raylib backend (when implemented)
-cmake -B build -DCITSY_BUILD_RAYLIB_BACKEND=ON
-cmake --build build
 ```
 
 ---
@@ -101,14 +96,9 @@ None. The `citsy` target is a self-contained static library with only standard C
 
 [Catch2](https://github.com/catchorg/Catch2) v3.5.4 is fetched automatically via CMake `FetchContent`. No system install required — it lands in `build/_deps/catch2-src/`.
 
-### Optional backends
+### Display host (32blit)
 
-| Backend | Dependency | When |
-|---|---|---|
-| raylib | [raylib](https://www.raylib.com/) | `CITSY_BUILD_RAYLIB_BACKEND=ON` |
-| 32blit | 32blit SDK | Planned |
-
-Backends link both `citsy` and their platform library. The core never links them.
+The playable host is a separate 32blit project: [citsy-32blit](https://github.com/TeriyakiGod/citsy-32blit). It uses the 32blit SDK (desktop SDL or VGC Zero) and links the `citsy` library. It is not a CMake option of this repo.
 
 ---
 
@@ -199,7 +189,7 @@ Open the project root; CLion detects `CMakeLists.txt` automatically.
 
 ## Cross-compilation notes
 
-The core library is platform-agnostic C++20 with no OS-specific code. Backends will add platform constraints when implemented (e.g. raylib for desktop, 32blit for a specific handheld).
+The core library is platform-agnostic C++20 with no OS-specific code. The 32blit player adds SDL (desktop) or Pico SDK (VGC) constraints in its own CMake project.
 
 For embedded or cross targets, disable tests and examples to avoid pulling Catch2:
 

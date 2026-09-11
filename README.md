@@ -2,7 +2,7 @@
 
 A headless C++ reimplementation of the [Bitsy](https://codeberg.org/adamledoux/bitsy) game engine — the little engine for little games, worlds, and stories.
 
-citsy is **engine only**. It does not link against raylib, 32blit, or any other graphics or audio library. Instead, it exposes a small **Host System API** that a separate front-end (your renderer, your platform layer) implements. The engine owns game logic, simulation, scripting, and framebuffers; the host owns pixels on screen, input devices, and speakers.
+citsy is **engine only**. It does not link against 32blit or any other graphics or audio library. Instead, it exposes a small **Host System API** that a separate front-end (your renderer, your platform layer) implements. The engine owns game logic, simulation, scripting, and framebuffers; the host owns pixels on screen, input devices, and speakers.
 
 > **Note:** This project is a clean-room engine inspired by Bitsy. It is not affiliated with Adam Le Doux or the official Bitsy project. Game data produced by the Bitsy editor (`.bitsy` files) is the intended interchange format.
 
@@ -36,7 +36,7 @@ citsy takes that separation further:
 | Layer | Responsibility |
 |---|---|
 | **citsy core** | Parse `.bitsy` data, simulate the world, run dialog scripts, produce memory buffers and audio parameters |
-| **Host backend** | Map buffers to textures, poll input, play sound, present frames (raylib, 32blit, custom) |
+| **Host backend** | Map buffers to textures, poll input, play sound, present frames (32blit, MockHost, custom) |
 
 This makes the engine embeddable in game jams, retro handhelds, test harnesses, and server-side validators without dragging in a windowing library.
 
@@ -91,7 +91,7 @@ For agent-oriented conventions, see [AGENTS.md](AGENTS.md).
                            ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                      Host backend                           │
-│  raylib · 32blit · headless mock · your platform            │
+│  32blit · headless mock · your platform                     │
 │  - input polling          - audio output                    │
 │  - buffer → texture blit  - logging                         │
 └──────────────────────────┬──────────────────────────────────┘
@@ -218,8 +218,7 @@ public:
 
 Backends implement `present()` differently:
 
-- **raylib** — upload indices to a 128×128 `Image` / `Texture`, scale with `DrawTexturePro`, mix square-wave audio.
-- **32blit** — blit directly into the handheld framebuffer at native resolution.
+- **32blit** — paletted blit of the 128×128 index buffer into the handheld/desktop framebuffer; square-wave audio via `channels[]`. See the companion [citsy-32blit](https://github.com/TeriyakiGod/citsy-32blit) player.
 - **MockHost** — record buffer snapshots for unit tests; no window.
 
 ### Palette updates
@@ -324,10 +323,8 @@ citsy/
 │   ├── font/               # .bitsyfont + ascii_small
 │   ├── sound/              # Blips and tunes → channel params
 │   └── transition/         # Exit transition effects
-├── backends/               # Optional; not part of core library
-│   ├── raylib/             # Reference desktop backend
-│   ├── mock/               # Test double
-│   └── 32blit/             # Handheld backend (planned)
+├── backends/
+│   └── mock/               # Test double (header-only)
 ├── tests/
 │   ├── unit/
 │   └── data/               # Sample .bitsy files
@@ -337,7 +334,7 @@ citsy/
 └── README.md
 ```
 
-The `citsy` CMake target is a static or shared library with **no** link dependency on raylib, 32blit, or similar. Backends are separate targets that link both `citsy` and their platform library.
+The `citsy` CMake target is a static or shared library with **no** link dependency on 32blit or similar. Display hosts are separate projects that link `citsy` and their platform library.
 
 ---
 
@@ -356,12 +353,7 @@ ctest --test-dir build
 
 See [docs/tools.md](docs/tools.md) for CMake options, build targets, and dependency details. See [docs/testing.md](docs/testing.md) for test filtering, fixtures, and writing new tests.
 
-To build with the raylib reference backend (optional):
-
-```bash
-cmake -B build -DCITSY_BUILD_RAYLIB_BACKEND=ON
-cmake --build build
-```
+The 32blit reference player is a separate repository: [citsy-32blit](https://github.com/TeriyakiGod/citsy-32blit).
 
 ---
 
@@ -406,13 +398,18 @@ int main() {
 }
 ```
 
-### Reference raylib backend (optional)
+### 32blit player
+
+The Phase 4 host lives in **[citsy-32blit](https://github.com/TeriyakiGod/citsy-32blit)** (from the [chili-chip/game-template](https://github.com/chili-chip/game-template)). It implements `citsy::Host` with the 32blit SDK, so the same binary runs on desktop SDL and on VGC Zero / 32blit hardware.
 
 ```bash
-./build/examples/raylib_player path/to/game.bitsy
+cd ../citsy-32blit
+cmake --preset linux
+cmake --build --preset linux
+./out/build/linux/citsy-32blit.elf
 ```
 
-The raylib example creates a window, scales the 128×128 logical framebuffer with integer scaling, maps arrow keys and Z/Enter to Bitsy buttons, and plays square-wave audio.
+A bundled `playable.bitsy` starts automatically. MENU opens a list of `.bitsy` files (bundled assets, files next to the binary, or `--launch_path`). See that repo’s README for controls and how games are packed.
 
 ---
 
@@ -445,9 +442,10 @@ Development is staged toward practical compatibility with games made in current 
   - [x] Sound channel output
   - [x] RTL text direction
 
-- [ ] **Phase 4 — Backends**
-  - [ ] raylib reference player
-  - [ ] 32blit backend (community contribution welcome)
+- [x] **Phase 4 — 32blit player**
+  - [x] 32blit `Host` in the companion [citsy-32blit](https://github.com/TeriyakiGod/citsy-32blit) repo
+  - [x] Load `.bitsy` from packed assets, disk, or `--launch_path`
+  - [x] Desktop SDL build (same project also targets VGC Zero)
 
 Compatibility fixtures will be drawn from the [Bitsy community](https://bitsy.org) and existing open-source parsers such as [bitsy-parser](https://docs.rs/bitsy-parser).
 
@@ -460,6 +458,7 @@ Compatibility fixtures will be drawn from the [Bitsy community](https://bitsy.or
 - [Bitsy System API](https://make.bitsy.org/docs/technical/system/) — host system layer specification
 - [bitsybox](https://github.com/le-doux/bitsybox) — desktop runtime with SDL host implementation
 - [bitsy-parser](https://docs.rs/bitsy-parser) — Rust parser useful for cross-checking file format behavior
+- [citsy-32blit](https://github.com/TeriyakiGod/citsy-32blit) — 32blit player (desktop + VGC Zero)
 - [Bitsy Wiki / FAQ](https://bitsy.fandom.com/wiki/FAQ) — community documentation on variables, colors, and data format
 
 ---

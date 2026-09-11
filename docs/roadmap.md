@@ -29,9 +29,10 @@ Development is staged toward practical compatibility with games made in current 
     - [x] Sound channel output
     - [x] RTL text direction
 
-- [ ] **Phase 4 — Backends**
-    - [ ] raylib reference player
-    - [ ] 32blit backend (community contribution welcome)
+- [x] **Phase 4 — 32blit player**
+    - [x] 32blit `Host` in [citsy-32blit](https://github.com/TeriyakiGod/citsy-32blit)
+    - [x] Load `.bitsy` from packed assets, disk, or `--launch_path`
+    - [x] Desktop SDL build
 
 Compatibility fixtures are drawn from the [Bitsy community](https://bitsy.org) and existing open-source parsers such as [bitsy-parser](https://docs.rs/bitsy-parser).
 

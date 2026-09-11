@@ -12,7 +12,7 @@ Build a **Bitsy-compatible game engine** in modern C++ that:
 
 1. Parses and simulates `.bitsy` game data
 2. Produces logical framebuffers and audio parameters (no GPU/window code)
-3. Exposes a pluggable `Host` interface for platform backends (raylib, 32blit, mock)
+3. Exposes a pluggable `Host` interface for platform backends (32blit player, MockHost, custom)
 
 ---
 
@@ -22,11 +22,11 @@ These are non-negotiable. Violating them is a design bug.
 
 | Rule | Detail |
 |---|---|
-| **Core is headless** | `citsy` library must not link against raylib, 32blit, OpenGL, SDL, or any audio/window library |
+| **Core is headless** | `citsy` library must not link against 32blit, OpenGL, SDL, or any audio/window library |
 | **No editor** | Do not build authoring tools, HTML export, or a Bitsy clone UI |
 | **No JS runtime** | Reimplement engine logic in C++; do not embed Duktape/V8 to run the reference JS |
 | **Engine never draws** | Core writes memory blocks; only backends call platform APIs in `Host::present()` |
-| **Backends are optional** | Live under `backends/`, separate CMake targets, off by default |
+| **Display hosts are separate** | MockHost lives in `backends/mock/`. The 32blit player is a separate repo (`citsy-32blit`). |
 
 When adding a dependency, ask: *does this belong in core or in a backend?* If it opens a window or plays sound, it is a backend concern.
 
@@ -35,7 +35,7 @@ When adding a dependency, ask: *does this belong in core or in a backend?* If it
 ## Architecture
 
 ```
-Application  →  Host backend (raylib / 32blit / mock)  →  citsy core  →  .bitsy data
+Application  →  Host backend (32blit / mock)  →  citsy core  →  .bitsy data
 ```
 
 **Update loop** (each frame):
@@ -72,9 +72,7 @@ src/render/        Logical compositor → memory blocks (no GPU)
 src/font/          .bitsyfont rendering into textbox buffer
 src/sound/         Square-wave channel parameter generation
 src/transition/    Fade/wipe effects (video mode)
-backends/raylib/   Reference desktop player (optional CMake flag)
 backends/mock/     Test double for unit tests
-backends/32blit/   Handheld backend (planned)
 tests/unit/        Core tests, no GPU
 tests/data/        Sample .bitsy fixtures
 examples/minimal/  MockHost demo
@@ -139,7 +137,7 @@ Implement compatibility **incrementally** with fixture tests in `tests/data/`.
 
 - Bitsy editor or level design UI
 - HTML/itch.io export pipeline
-- SDL backend (use raylib for desktop; it covers that use case)
+- Extra desktop toolkits (the 32blit SDL host already covers desktop)
 - Full feature parity in a single PR — follow the roadmap phases
 
 ---
@@ -150,7 +148,7 @@ Implement compatibility **incrementally** with fixture tests in `tests/data/`.
 2. **Phase 1** — Movement, collision, room render, sprites/items, exits, linear dialog
 3. **Phase 2** — Variables, conditional dialog, inventory, endings
 4. **Phase 3** — Animation, transitions, fonts, sound params, RTL
-5. **Phase 4** — raylib reference player, 32blit backend
+5. **Phase 4** — 32blit player (companion `citsy-32blit` repo)
 
 Check README roadmap checkboxes when completing milestones.
 
@@ -162,11 +160,9 @@ Check README roadmap checkboxes when completing milestones.
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ctest --test-dir build
-
-# Optional raylib backend
-cmake -B build -DCITSY_BUILD_RAYLIB_BACKEND=ON
-cmake --build build
 ```
+
+The 32blit player is a sibling project (`citsy-32blit`), not an in-tree CMake option.
 
 Requirements: CMake 3.20+, C++20 compiler (GCC 11+, Clang 14+, MSVC 19.29+). See `docs/tools.md` for CMake options and `docs/testing.md` for test commands and MockHost usage.
 
@@ -174,7 +170,7 @@ Requirements: CMake 3.20+, C++20 compiler (GCC 11+, Clang 14+, MSVC 19.29+). See
 
 ## Agent checklist (before finishing a task)
 
-- [ ] Code lives in the correct module (`src/` vs `backends/`)
+- [ ] Code lives in the correct module (`src/` vs `backends/mock`; display hosts stay out of core)
 - [ ] Core library has zero platform/media dependencies
 - [ ] Public API changes reflected in `include/citsy/`
 - [ ] Behavior covered by unit tests where practical

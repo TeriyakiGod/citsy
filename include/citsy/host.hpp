@@ -13,7 +13,7 @@ namespace citsy {
 
 /// Abstract host backend.
 ///
-/// A concrete backend (raylib, 32blit, MockHost, …) implements this interface
+/// A concrete backend (32blit player, MockHost, custom host, …) implements this interface
 /// and is handed to Engine::update() each frame.
 ///
 /// The engine calls the host for **time** and **input**; after simulation it

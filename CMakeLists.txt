@@ -13,7 +13,6 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # ---------------------------------------------------------------------------
 option(CITSY_BUILD_TESTS            "Build unit tests"                 ON)
 option(CITSY_BUILD_EXAMPLES         "Build example programs"           ON)
-option(CITSY_BUILD_RAYLIB_BACKEND   "Build the raylib reference player" OFF)
 
 # ---------------------------------------------------------------------------
 # Core library: citsy
@@ -110,9 +109,5 @@ if(CITSY_BUILD_EXAMPLES)
     )
 endif()
 
-# ---------------------------------------------------------------------------
-# raylib backend (optional)
-# ---------------------------------------------------------------------------
-if(CITSY_BUILD_RAYLIB_BACKEND)
-    add_subdirectory(backends/raylib)
-endif()
+# Display backends (32blit, custom hosts, …) live in separate repositories.
+# They link this library; they are not built here.

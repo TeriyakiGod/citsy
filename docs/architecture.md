@@ -15,7 +15,7 @@ citsy is a headless C++ reimplementation of the [Bitsy](https://bitsy.org) game 
                            ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                      Host backend                           │
-│  raylib · 32blit · MockHost · custom platform               │
+│  32blit · MockHost · custom platform                        │
 │  - poll input & time        - play square-wave audio        │
 │  - blit buffers to display  - optional logging              │
 └──────────────────────────┬──────────────────────────────────┘
@@ -34,7 +34,7 @@ citsy is a headless C++ reimplementation of the [Bitsy](https://bitsy.org) game 
 └─────────────────────────────────────────────────────────────┘
 ```
 
-The engine **never** calls platform APIs (no windowing, GPU, or audio libraries in the core). Backends live under `backends/` and are optional CMake targets.
+The engine **never** calls platform APIs (no windowing, GPU, or audio libraries in the core). MockHost lives under `backends/mock/`. The 32blit player is a separate repository.
 
 ---
 
@@ -42,9 +42,9 @@ The engine **never** calls platform APIs (no windowing, GPU, or audio libraries 
 
 | Rule | Detail |
 |---|---|
-| Core is headless | The `citsy` library must not link raylib, SDL, OpenGL, or any audio/window library |
+| Core is headless | The `citsy` library must not link 32blit, SDL, OpenGL, or any audio/window library |
 | Engine never draws | Core writes memory blocks; only backends call platform APIs in `Host::present()` |
-| Backends are optional | Separate CMake targets, off by default (except MockHost, which is header-only) |
+| Display hosts | Out of tree | MockHost is in-tree and header-only; 32blit is [citsy-32blit](https://github.com/TeriyakiGod/citsy-32blit) |
 | No JS runtime | Engine logic is native C++; `.bitsy` files are parsed directly |
 | No editor | Author games with [bitsy.org](https://bitsy.org); citsy is runtime only |
 
@@ -69,9 +69,7 @@ citsy/
 │   ├── sound/              # Blip / tune → SoundChannel params
 │   └── transition/         # Fade / wave / tunnel / slide
 ├── backends/
-│   ├── mock/               # MockHost test double (header-only)
-│   ├── raylib/             # (planned) Reference desktop player
-│   └── 32blit/             # (planned) Handheld backend
+│   └── mock/               # MockHost test double (header-only)
 ├── tests/
 │   ├── unit/               # Catch2 unit tests
 │   └── data/               # Sample .bitsy fixtures
@@ -226,8 +224,7 @@ Backends implement `citsy::Host` (`include/citsy/host.hpp`):
 | Backend | Status | Use case |
 |---|---|---|
 | **MockHost** | Implemented | Unit tests; records `PresentSnapshot` per frame |
-| **raylib** | Planned | Reference desktop player with window and audio |
-| **32blit** | Planned | Handheld device backend |
+| **32blit** | Implemented | Companion player repo [citsy-32blit](https://github.com/TeriyakiGod/citsy-32blit) (desktop SDL + VGC Zero) |
 
 MockHost is header-only (`backends/mock/mock_host.hpp`). It stores every `present()` call in `snapshots` so tests can assert on buffer sizes, palette colors, and graphics mode without a display.
 

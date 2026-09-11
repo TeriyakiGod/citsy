@@ -50,7 +50,7 @@ citsy is engine only. It parses `.bitsy` data, simulates the world, and writes l
 
 ```mermaid
 flowchart TB
-  App["Your application"] --> Host["Host backend<br/>raylib · 32blit · MockHost"]
+  App["Your application"] --> Host["Host backend<br/>32blit · MockHost"]
   Host -->|"time, input"| Core["citsy core"]
   Core -->|"present(buffers, palette, sound)"| Host
   Core --> Data[".bitsy game data"]

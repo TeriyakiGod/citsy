@@ -119,17 +119,15 @@ When a game or transition changes colors, the engine updates its internal palett
 | Backend | Status | Use case |
 |---|---|---|
 | **MockHost** | Implemented | Unit tests; records `PresentSnapshot` per frame |
-| **raylib** | Planned | Reference desktop player with window and audio |
-| **32blit** | Planned | Handheld device backend |
+| **32blit** | Implemented | Companion [citsy-32blit](https://github.com/TeriyakiGod/citsy-32blit) player |
 
 MockHost is header-only (`backends/mock/mock_host.hpp`). It stores every `present()` call so tests can assert on buffer sizes, palette colors, and graphics mode without a display. See [Testing](testing.md#mockhost).
 
 ### Implementing `present()`
 
-- **raylib** — Upload indices to a 128×128 `Image` / `Texture`, scale with integer nearest-neighbor, mix square-wave audio.
-- **32blit** — Blit directly into the handheld framebuffer at native resolution.
+- **32blit** — Paletted blit of the 128×128 index buffer; square-wave audio on `channels[]`. Implemented in [citsy-32blit](https://github.com/TeriyakiGod/citsy-32blit).
 - **MockHost** — Record snapshots; no window.
 
 !!! warning "Keep platform code out of core"
 
-    The `citsy` library must not link raylib, SDL, OpenGL, or any audio/window library. Backends live under `backends/` as optional CMake targets.
+    The `citsy` library must not link 32blit, SDL, OpenGL, or any audio/window library. Display hosts are separate projects.

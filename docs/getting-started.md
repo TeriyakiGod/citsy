@@ -126,6 +126,8 @@ add_subdirectory(path/to/citsy)
 target_link_libraries(my_app PRIVATE citsy)
 ```
 
+To play a `.bitsy` file on desktop without writing a host, use [citsy-32blit](https://github.com/TeriyakiGod/citsy-32blit).
+
 !!! tip "Start with MockHost"
 
     For tests or a first integration, use `backends/mock/mock_host.hpp`. It records every `present()` call so you can assert on buffers without a window. See [Testing](testing.md#mockhost).
@@ -138,4 +140,4 @@ The full host contract — buttons, memory blocks, graphics modes — is documen
 - Mix audio samples (it only emits square-wave *parameters*)
 - Author or export Bitsy games — use [bitsy.org](https://bitsy.org)
 
-Those jobs belong in a backend. The optional raylib player is still on the [roadmap](roadmap.md).
+Those jobs belong in a backend. The 32blit player is [citsy-32blit](https://github.com/TeriyakiGod/citsy-32blit).
