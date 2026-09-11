@@ -27,6 +27,8 @@ struct ComposeState {
     std::string                     room_id;
     int                             avatar_x = 0;
     int                             avatar_y = 0;
+    int                             anim_frame = 0;
+    std::string                     avatar_id = "A";
 };
 
 struct ComposeBuffers {

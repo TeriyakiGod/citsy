@@ -99,11 +99,26 @@ public:
     [[nodiscard]] int avatar_x() const noexcept;
     [[nodiscard]] int avatar_y() const noexcept;
 
-    /// True while a linear dialog box is open.
+    /// True while a dialog box is open.
     [[nodiscard]] bool dialog_active() const noexcept;
 
     /// Text of the current dialog page, or empty if no dialog is open.
     [[nodiscard]] std::string_view dialog_line() const noexcept;
+
+    /// How many of @p item_id the avatar currently holds.
+    [[nodiscard]] int inventory_count(std::string_view item_id) const;
+
+    /// Current value of a Bitsy variable (empty if unset).
+    [[nodiscard]] std::string variable(std::string_view name) const;
+
+    /// True after an ending has been triggered (game will stop when dismissed).
+    [[nodiscard]] bool ending_active() const noexcept;
+
+    /// Current flipbook animation frame index (advances every 400 ms).
+    [[nodiscard]] int anim_frame() const noexcept;
+
+    /// Sprite id used for the avatar's appearance (AVA / {ava}).
+    [[nodiscard]] std::string avatar_appearance() const;
 
 private:
     struct Impl;

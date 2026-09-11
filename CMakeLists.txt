@@ -22,7 +22,11 @@ add_library(citsy STATIC
     src/parser/parser.cpp
     src/engine/engine.cpp
     src/dialog/linear.cpp
+    src/dialog/script.cpp
     src/render/compose.cpp
+    src/font/font.cpp
+    src/sound/sound.cpp
+    src/transition/transition.cpp
 )
 
 target_include_directories(citsy
@@ -69,6 +73,7 @@ if(CITSY_BUILD_TESTS)
         tests/unit/test_engine.cpp
         tests/unit/test_dialog.cpp
         tests/unit/test_simulation.cpp
+        tests/unit/test_phase3.cpp
     )
 
     target_link_libraries(citsy_tests

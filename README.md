@@ -227,18 +227,18 @@ When a game or transition changes colors, the engine updates its internal palett
 
 ## Engine internals
 
-Planned modules inside the core library:
+Modules inside the core library:
 
 | Module | Role |
 |---|---|
 | `parser/` | Load and serialize `.bitsy` text; validate segments |
 | `model/` | `Game`, `Room`, `Tile`, `Sprite`, `Item`, `Dialogue`, `Variable`, … |
 | `engine/` | Main loop, avatar movement, collision, room transitions |
-| `dialog/` | Linear dialog pages; full `{variable}` scripting in Phase 2 |
+| `dialog/` | Script interpreter: variables, conditionals, lists, `{print*}`, `{ava}`/`{pal}`/`{exit}`/`{end}` |
 | `render/` | Logical renderer — fills video/map/textbox memory blocks (no GPU) |
-| `font/` | Built-in and custom `.bitsyfont` glyph rendering into textbox buffer |
-| `sound/` | Two-channel square-wave parameter generation |
-| `transition/` | Room transition effects (fade, wipe, etc.) in video mode |
+| `font/` | Built-in `ascii_small` and custom `.bitsyfont` glyph rendering into textbox buffer |
+| `sound/` | Two-channel square-wave parameter generation (blips + tunes) |
+| `transition/` | Room transition effects (fade, wave, tunnel, slide) in video mode |
 
 ### Graphics modes
 
@@ -251,10 +251,12 @@ The host chooses how to interpret buffers based on the `gfx_mode` argument to `p
 
 Dialog is not just text — it is Bitsy's lightweight game logic language. The engine evaluates:
 
-- **Text lines** and `{print …}` expressions
+- **Text lines** and `{print …}` / `{say …}` expressions
 - **Variable assignment** — `{name = value}`, `{count = count + 1}`
-- **Conditionals** — branching lists based on variable values and item counts
-- **Actions** — give/take items, change rooms via exits, trigger endings
+- **Conditionals and lists** — `{sequence}` / `{cycle}` / `{shuffle}` and `- cond ?` / `- else`
+- **Actions** — `{item}`, `{ava}`, `{pal}`, `{tune}`, `{blip}`, `{exit}`, `{end}`, `{lock}` / `{property locked}`
+- **Drawings** — `{printSprite}`, `{printTile}`, `{printItem}`
+- **Effects** — `{wvy}`, `{shk}`, `{rbw}`, `{clr}` / `{clr1}` / `{clr2}` / `{clr3}`
 
 Scripts are parsed from `DLG` segments in game data. citsy implements the same expression grammar as the reference engine for supported versions.
 
@@ -288,13 +290,13 @@ citsy targets import of standard `.bitsy` files exported from the editor.
 |---|---|
 | `# BITSY VERSION` header | Yes |
 | Comma-separated room format (`! ROOM_FORMAT`) | Yes |
-| Legacy contiguous room format (single-char tile IDs) | Planned |
-| `SET` vs `ROOM` (historical naming) | Planned |
+| Legacy contiguous room format (single-char tile IDs) | Yes |
+| `SET` vs `ROOM` (historical naming) | Yes |
 | Multi-frame animation | Yes |
 | Extended palettes (`COL n`) | Yes |
 | Variables and dialog scripting | Yes |
-| Custom fonts (`FONT` / `.bitsyfont`) | Planned |
-| `TEXT_DIRECTION RTL` | Planned |
+| Custom fonts (`FONT` / `.bitsyfont`) | Yes |
+| `TEXT_DIRECTION RTL` | Yes |
 | Sound (engine generates channel params; host plays audio) | Yes |
 
 Exact version targets will be documented as compatibility tests land in `tests/data/`.
@@ -316,8 +318,9 @@ citsy/
 │   ├── engine/             # Simulation & game loop
 │   ├── dialog/             # Script interpreter
 │   ├── render/             # Logical framebuffer compositor
-│   ├── font/
-│   └── sound/
+│   ├── font/               # .bitsyfont + ascii_small
+│   ├── sound/              # Blips and tunes → channel params
+│   └── transition/         # Exit transition effects
 ├── backends/               # Optional; not part of core library
 │   ├── raylib/             # Reference desktop backend
 │   ├── mock/               # Test double
@@ -426,18 +429,18 @@ Development is staged toward practical compatibility with games made in current 
   - [x] Exit transitions between rooms
   - [x] Basic dialog (linear text)
 
-- [ ] **Phase 2 — Scripting & state**
-  - [ ] Variables (numbers and strings)
-  - [ ] Conditional dialog branches
-  - [ ] Item give/take and inventory
-  - [ ] Endings
+- [x] **Phase 2 — Scripting & state**
+  - [x] Variables (numbers and strings)
+  - [x] Conditional dialog branches
+  - [x] Item give/take and inventory
+  - [x] Endings
 
-- [ ] **Phase 3 — Polish**
-  - [ ] Animation timing
-  - [ ] Transition effects (video mode)
-  - [ ] Custom fonts
-  - [ ] Sound channel output
-  - [ ] RTL text direction
+- [x] **Phase 3 — Polish**
+  - [x] Animation timing
+  - [x] Transition effects (video mode)
+  - [x] Custom fonts
+  - [x] Sound channel output
+  - [x] RTL text direction
 
 - [ ] **Phase 4 — Backends**
   - [ ] raylib reference player

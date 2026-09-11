@@ -61,12 +61,15 @@ tests/
 │   ├── test_parser.cpp     # Parser and Game model tests
 │   ├── test_engine.cpp     # Engine lifecycle and MockHost integration
 │   ├── test_dialog.cpp     # Linear dialog page extraction
-│   └── test_simulation.cpp # Movement, collision, render, exits, dialog
+│   ├── test_simulation.cpp # Movement, collision, render, exits, dialog
+│   └── test_phase3.cpp     # Animation, fonts, RTL, sound, transitions, dialog VM
 └── data/
     ├── minimal.bitsy       # Full game with all entity types
     ├── animated.bitsy      # Multi-frame tile animation
     ├── two_rooms.bitsy     # Two rooms with exits and palettes
-    └── playable.bitsy      # Walls, NPC dialog, item, room exit
+    ├── playable.bitsy      # Walls, NPC dialog, item, room exit
+    ├── mossland.bitsy      # Real Bitsy 6.4 game
+    └── phase3.bitsy        # Bitsy 8.15 tune/blip/AVA/FX sample
 ```
 
 | File | Tags | What it covers |
@@ -75,8 +78,9 @@ tests/
 | `test_engine.cpp` | `[engine]`, `[mock]` | Engine construction, lifecycle, buffer sizes, palette output, MockHost behavior |
 | `test_dialog.cpp` | `[dialog]` | Linear page extraction from DLG source |
 | `test_simulation.cpp` | `[engine]`, `[sim]`, `[render]`, `[dialog]`, `[fixture]` | Movement, walls, map/video compose, sprite/item drawing, exits, linear dialog |
+| `test_phase3.cpp` | `[phase3]`, `[font]`, `[sound]`, `[transition]`, `[inventory]`, `[dialog]` | Animation, fonts, RTL, blips/tunes, `{item}`/`{property}`, titles, 8.15 extras |
 
-As of Phase 1, the suite contains **84 tests**, all passing.
+As of Phase 3, the suite covers parser, simulation, dialog scripting, fonts, sound, and transitions.
 
 ---
 
