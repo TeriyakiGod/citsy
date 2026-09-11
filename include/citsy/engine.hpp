@@ -105,11 +105,21 @@ public:
     /// Text of the current dialog page, or empty if no dialog is open.
     [[nodiscard]] std::string_view dialog_line() const noexcept;
 
-    /// How many of @p item_id the avatar currently holds.
+    /// How many of @p item_id the avatar currently holds (id or NAME).
     [[nodiscard]] int inventory_count(std::string_view item_id) const;
+
+    /// Alias for inventory_count (Phase 2 name).
+    [[nodiscard]] int item_count(std::string_view id_or_name) const {
+        return inventory_count(id_or_name);
+    }
 
     /// Current value of a Bitsy variable (empty if unset).
     [[nodiscard]] std::string variable(std::string_view name) const;
+
+    /// Alias for variable (Phase 2 name).
+    [[nodiscard]] std::string variable_value(std::string_view name) const {
+        return variable(name);
+    }
 
     /// True after an ending has been triggered (game will stop when dismissed).
     [[nodiscard]] bool ending_active() const noexcept;

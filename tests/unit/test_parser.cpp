@@ -467,6 +467,22 @@ ada
 // Ending
 // ===========================================================================
 
+TEST_CASE("parser: triple-quoted dialogue keeps blank lines", "[parser][dialogue]") {
+    constexpr std::string_view src = R"(
+DLG DLG_0
+"""
+hello
+
+world
+"""
+)";
+    auto game = citsy::parse(src);
+    REQUIRE(game.dialogues.count("DLG_0") == 1);
+    const auto& c = game.dialogues.at("DLG_0").content;
+    CHECK(c.find("hello") != std::string::npos);
+    CHECK(c.find("world") != std::string::npos);
+}
+
 TEST_CASE("parser: ending text and name", "[parser][ending]") {
     constexpr std::string_view src = R"(
 END 0
@@ -478,6 +494,23 @@ NAME good ending
     const auto& end = game.endings.at("0");
     CHECK(end.text == "You found the treasure!");
     CHECK(end.name == "good ending");
+}
+
+TEST_CASE("parser: triple-quoted ending keeps blank lines", "[parser][ending]") {
+    constexpr std::string_view src = R"(
+END 0
+"""
+it's a big world
+
+good luck
+"""
+NAME good ending
+)";
+    auto game = citsy::parse(src);
+    REQUIRE(game.endings.count("0") == 1);
+    CHECK(game.endings.at("0").text.find("it's a big world") != std::string::npos);
+    CHECK(game.endings.at("0").text.find("good luck") != std::string::npos);
+    CHECK(game.endings.at("0").name == "good ending");
 }
 
 // ===========================================================================
@@ -704,8 +737,10 @@ TEST_CASE("fixture: mossland.bitsy parses real game", "[fixture][mossland]") {
     REQUIRE(game.dialogues.count("SPR_1") == 1);
     CHECK(game.dialogues.at("SPR_1").content.find("sequence") != std::string::npos);
     CHECK(game.dialogues.at("SPR_1").content.find("I tend the moss") != std::string::npos);
+    CHECK(game.dialogues.at("SPR_1").content.find("moss-some") != std::string::npos);
 
-    // Ending text (triple-quoted block)
+    // Ending text (triple-quoted block, including the line after a blank)
     REQUIRE(game.endings.count("0") == 1);
     CHECK(game.endings.at("0").text.find("it's a big world, little bug") != std::string::npos);
+    CHECK(game.endings.at("0").text.find("good luck") != std::string::npos);
 }

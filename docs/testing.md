@@ -60,7 +60,7 @@ tests/
 ├── unit/
 │   ├── test_parser.cpp     # Parser and Game model tests
 │   ├── test_engine.cpp     # Engine lifecycle and MockHost integration
-│   ├── test_dialog.cpp     # Linear dialog page extraction
+│   ├── test_dialog.cpp     # Dialog page extraction and script interpreter
 │   ├── test_simulation.cpp # Movement, collision, render, exits, dialog
 │   └── test_phase3.cpp     # Animation, fonts, RTL, sound, transitions, dialog VM
 └── data/
@@ -69,6 +69,7 @@ tests/
     ├── two_rooms.bitsy     # Two rooms with exits and palettes
     ├── playable.bitsy      # Walls, NPC dialog, item, room exit
     ├── mossland.bitsy      # Real Bitsy 6.4 game
+    ├── scripted.bitsy      # Variables, conditional dialog, inventory, ending
     └── phase3.bitsy        # Bitsy 8.15 tune/blip/AVA/FX sample
 ```
 
@@ -76,7 +77,7 @@ tests/
 |---|---|---|
 | `test_parser.cpp` | `[parser]`, `[palette]`, `[tile]`, `[sprite]`, `[item]`, `[room]`, `[dialogue]`, `[variable]`, `[ending]`, `[model]`, `[errors]`, `[fixture]` | `.bitsy` parsing, entity fields, error handling, fixture files |
 | `test_engine.cpp` | `[engine]`, `[mock]` | Engine construction, lifecycle, buffer sizes, palette output, MockHost behavior |
-| `test_dialog.cpp` | `[dialog]` | Linear page extraction from DLG source |
+| `test_dialog.cpp` | `[dialog]`, `[script]` | Page extraction and script evaluation (variables, lists, items, `{end}`/`{exit}`) |
 | `test_simulation.cpp` | `[engine]`, `[sim]`, `[render]`, `[dialog]`, `[fixture]` | Movement, walls, map/video compose, sprite/item drawing, exits, linear dialog |
 | `test_phase3.cpp` | `[phase3]`, `[font]`, `[sound]`, `[transition]`, `[inventory]`, `[dialog]` | Animation, fonts, RTL, blips/tunes, `{item}`/`{property}`, titles, 8.15 extras |
 

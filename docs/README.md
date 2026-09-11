@@ -14,5 +14,6 @@ Supplementary documentation for the citsy project. For a high-level overview, de
 |---|---|
 | [Bitsy overview](bitsy/README.md) | Index for format and engine reference docs |
 | [Data model](bitsy/data-model.md) | Entity types, properties, file syntax, and C++ struct mapping |
+| [Dialog scripting](bitsy/dialog.md) | Variables, lists, inventory, `{end}` / `{exit}` |
 
 For agent-oriented conventions (boundaries, module placement, checklist), see [AGENTS.md](../AGENTS.md).

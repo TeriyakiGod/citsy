@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <array>
 #include <fstream>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -95,6 +96,8 @@ struct Engine::Impl {
 
     bool ending_hold = false;  // ended, waiting for dismiss
     bool narrating   = false;
+    bool pending_end = false;
+    std::optional<Exit> queued_script_exit;
 
     BitsyFont   font;
     SoundPlayer sound;
@@ -234,10 +237,10 @@ struct Engine::Impl {
             ext.dest_x = x;
             ext.dest_y = y;
             ext.transition_effect = std::move(fx);
-            take_exit(ext, /*skip_dialog=*/true);
+            queued_script_exit = std::move(ext);
         };
         w.do_end = [this] {
-            trigger_ending("", /*from_script=*/true);
+            pending_end = true;
         };
         w.do_lock = [this] {
             if (lock_key.empty()) return;
@@ -310,6 +313,8 @@ struct Engine::Impl {
         dialog_plain.clear();
         ending_hold = false;
         narrating = false;
+        pending_end = false;
+        queued_script_exit.reset();
         cur_dir = Dir::None;
         hold_timer_ms = 0;
         any_held = false;
@@ -482,6 +487,17 @@ struct Engine::Impl {
         }
         dialog_plain.clear();
         textbox_pixels.clear();
+        if (queued_script_exit) {
+            Exit ext = *queued_script_exit;
+            queued_script_exit.reset();
+            take_exit(ext, /*skip_dialog=*/true);
+        }
+        if (pending_end) {
+            pending_end = false;
+            ending_hold = true;
+            narrating = true;
+            running = false;
+        }
     }
 
     void start_dialog(std::string source, std::function<void()> on_end) {
@@ -578,6 +594,7 @@ struct Engine::Impl {
                 return;
             }
             ending_hold = true;
+            running = false;
         };
 
         if (src.empty() && from_script) {
@@ -603,15 +620,15 @@ struct Engine::Impl {
             if (bit != game.blips.end()) sound.play_blip(bit->second, game);
         }
 
+        inventory[ri.item_id] += 1;
+
         const std::string room_id = current_room_id;
-        const std::string item_id = ri.item_id;
-        auto pickup = [this, room_id, index, item_id] {
+        auto pickup = [this, room_id, index] {
             auto it = room_items.find(room_id);
             if (it != room_items.end() &&
                 index >= 0 && index < static_cast<int>(it->second.size())) {
                 it->second.erase(it->second.begin() + index);
             }
-            inventory[item_id] += 1;
         };
 
         auto src = dialog_source(dlg_id);
@@ -815,8 +832,10 @@ std::string_view Engine::dialog_line() const noexcept {
 
 int Engine::inventory_count(std::string_view item_id) const {
     if (!impl_) return 0;
-    auto it = impl_->inventory.find(std::string(item_id));
-    return it == impl_->inventory.end() ? 0 : it->second;
+    std::string id{item_id};
+    if (const Item* it = impl_->game.find_item(item_id)) id = it->id;
+    auto found = impl_->inventory.find(id);
+    return found == impl_->inventory.end() ? 0 : found->second;
 }
 
 std::string Engine::variable(std::string_view name) const {

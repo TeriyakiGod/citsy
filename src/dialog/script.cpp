@@ -31,12 +31,19 @@ std::vector<std::string> split_args(std::string_view s) {
     std::vector<std::string> out;
     std::string cur;
     bool in_str = false;
+    int depth = 0;
     for (std::size_t i = 0; i < s.size(); ++i) {
         char c = s[i];
-        if (c == '"') {
+        if (c == '"' && (i == 0 || s[i - 1] != '\\')) {
             in_str = !in_str;
             cur.push_back(c);
-        } else if (!in_str && (c == ' ' || c == '\t' || c == ',')) {
+        } else if (!in_str && c == '{') {
+            ++depth;
+            cur.push_back(c);
+        } else if (!in_str && c == '}' && depth > 0) {
+            --depth;
+            cur.push_back(c);
+        } else if (!in_str && depth == 0 && (c == ' ' || c == '\t' || c == ',')) {
             if (!cur.empty()) {
                 out.push_back(cur);
                 cur.clear();
@@ -223,7 +230,13 @@ void DialogVM::run_until_pause() {
             }
             ++pos_;
             const std::size_t start = pos_;
-            while (pos_ < n && source_[pos_] != '"') ++pos_;
+            int depth = 0;
+            while (pos_ < n) {
+                if (source_[pos_] == '{' ) ++depth;
+                else if (source_[pos_] == '}' && depth > 0) --depth;
+                else if (source_[pos_] == '"' && depth == 0) break;
+                ++pos_;
+            }
             auto body = std::string_view(source_).substr(start, pos_ - start);
             if (pos_ < n) ++pos_;
             exec_chunk(body, false);
@@ -241,8 +254,12 @@ void DialogVM::run_until_pause() {
             auto inner = trim_sv(std::string_view(source_).substr(pos_ + 1, end - pos_ - 1));
             pos_ = end + 1;
             last_was_string = false;
-            if (inner.find('\n') != std::string_view::npos ||
-                inner.find('-') != std::string_view::npos) {
+            auto ident = first_ident(inner);
+            const bool is_list =
+                ident == "sequence" || ident == "cycle" || ident == "shuffle" ||
+                inner.find('\n') != std::string_view::npos ||
+                (!inner.empty() && inner[0] == '-');
+            if (is_list) {
                 exec_block(inner);
             } else {
                 exec_tag(inner);
@@ -269,11 +286,6 @@ void DialogVM::run_until_pause() {
 void DialogVM::exec_chunk(std::string_view chunk, bool /*implicit_page*/) {
     std::size_t i = 0;
     while (i < chunk.size() && !page_ready_) {
-        while (i < chunk.size() && (chunk[i] == ' ' || chunk[i] == '\t' ||
-                                    chunk[i] == '\n' || chunk[i] == '\r')) {
-            ++i;
-        }
-        if (i >= chunk.size()) break;
         if (chunk[i] == '"') {
             ++i;
             const std::size_t start = i;
@@ -305,8 +317,33 @@ void DialogVM::exec_chunk(std::string_view chunk, bool /*implicit_page*/) {
             }
             continue;
         }
+        if (chunk[i] == '\n' || chunk[i] == '\r') {
+            if (chunk[i] == '\r' && i + 1 < chunk.size() && chunk[i + 1] == '\n')
+                i += 2;
+            else
+                ++i;
+            std::size_t j = i;
+            while (j < chunk.size() && (chunk[j] == ' ' || chunk[j] == '\t')) ++j;
+            if (j < chunk.size() && (chunk[j] == '\n' || chunk[j] == '\r') &&
+                !spans_.empty()) {
+                auto rest = chunk.substr(j);
+                while (!rest.empty() &&
+                       (rest.front() == '\n' || rest.front() == '\r' ||
+                        rest.front() == ' ' || rest.front() == '\t')) {
+                    rest.remove_prefix(1);
+                }
+                pending_ = std::string(rest);
+                new_page();
+                return;
+            }
+            i = j;
+            continue;
+        }
         const std::size_t start = i;
-        while (i < chunk.size() && chunk[i] != '{') ++i;
+        while (i < chunk.size() && chunk[i] != '{' && chunk[i] != '"' &&
+               chunk[i] != '\n' && chunk[i] != '\r') {
+            ++i;
+        }
         emit_text(chunk.substr(start, i - start));
     }
 }
@@ -566,7 +603,7 @@ DialogValue DialogVM::eval_expr(std::string_view expr) {
                 expanded.push_back(expr[i++]);
             }
         }
-        return eval_expr(expanded);
+        if (expanded != expr) return eval_expr(expanded);
     }
 
     // Comparisons (lowest precedence among binary ops we care about).
@@ -688,7 +725,12 @@ DialogValue DialogVM::call_func(std::string_view name,
 
     if (name == "print" || name == "say") {
         if (args.empty()) return DialogValue::from_string({});
-        return eval_expr(args[0]);
+        std::string joined;
+        for (std::size_t i = 0; i < args.size(); ++i) {
+            if (i) joined += ' ';
+            joined += args[i];
+        }
+        return eval_expr(joined);
     }
     if (name == "item") {
         const std::string id = id_of(0);
@@ -777,6 +819,36 @@ DialogValue DialogVM::call_func(std::string_view name,
     (void)as_statement;
     if (world_.get_var) return world_.get_var(name);
     return DialogValue::from_string({});
+}
+
+DialogScript parse_dialog_script(std::string_view source) {
+    DialogScript script;
+    script.source = std::string(source);
+    return script;
+}
+
+DialogResult run_dialog_script(DialogScript& script, DialogWorld world) {
+    DialogResult result;
+    auto prev_end = world.do_end;
+    auto prev_exit = world.do_exit;
+    world.do_end = [&] {
+        result.end_game = true;
+        if (prev_end) prev_end();
+    };
+    world.do_exit = [&](std::string room, int x, int y, std::string fx) {
+        result.exit = DialogExit{room, x, y, fx};
+        if (prev_exit) prev_exit(std::move(room), x, y, std::move(fx));
+    };
+    script.vm.start(script.source, std::move(world), "compat", {});
+    if (script.vm.active()) {
+        result.pages.push_back(script.vm.plain_text());
+        while (script.vm.continue_page()) {
+            result.pages.push_back(script.vm.plain_text());
+        }
+    } else if (!script.vm.plain_text().empty()) {
+        result.pages.push_back(script.vm.plain_text());
+    }
+    return result;
 }
 
 } // namespace citsy

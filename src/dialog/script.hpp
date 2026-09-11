@@ -7,6 +7,7 @@
 #include "src/model/game.hpp"
 
 #include <functional>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -131,5 +132,30 @@ private:
 
 /// Still used by unit tests and as a fallback for unquoted ending text.
 [[nodiscard]] std::vector<std::string> extract_dialog_pages(std::string_view content);
+
+using Value = DialogValue;
+
+struct DialogExit {
+    std::string room_id;
+    int         x = 0;
+    int         y = 0;
+    std::string effect;
+};
+
+struct DialogResult {
+    std::vector<std::string> pages;
+    bool                     end_game = false;
+    std::optional<DialogExit> exit;
+};
+
+/// Parsed script with persistent list/shuffle cursors (Phase 2 test API).
+class DialogScript {
+public:
+    std::string source;
+    DialogVM    vm;
+};
+
+[[nodiscard]] DialogScript parse_dialog_script(std::string_view source);
+[[nodiscard]] DialogResult run_dialog_script(DialogScript& script, DialogWorld world);
 
 } // namespace citsy
