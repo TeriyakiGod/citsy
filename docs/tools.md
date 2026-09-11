@@ -223,4 +223,13 @@ pip install -r requirements-docs.txt
 mkdocs serve
 ```
 
-Open http://127.0.0.1:8000. `mkdocs build --strict` is what CI runs before deploying https://teriyakigod.github.io/citsy/.
+Open http://127.0.0.1:8000. `mkdocs build --strict` produces the static site in `site/`.
+
+The published site is https://teriyakigod.github.io/citsy/, served from the `gh-pages` branch. After changing docs:
+
+```bash
+mkdocs build --strict
+# publish the contents of site/ to the gh-pages branch
+```
+
+In the GitHub repo: **Settings → Pages → Build and deployment → Source: Deploy from a branch → Branch: `gh-pages` / `/`**.
