@@ -730,7 +730,7 @@ struct Engine::Impl {
         if (dlg.active() || ignore_input || ending_hold || transition.active()) return;
         if (cur_dir == Dir::None) return;
         hold_timer_ms -= dt_ms;
-        if (hold_timer_ms <= 0.0) {
+        if (hold_timer_ms <= 0) {
             try_move(cur_dir);
             hold_timer_ms = kRepeatHoldMs;
         }
