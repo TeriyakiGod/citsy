@@ -582,6 +582,38 @@ TEST_CASE("engine: title dialog shows at start", "[engine][phase3]") {
     CHECK_FALSE(engine.dialog_active());
 }
 
+TEST_CASE("engine: room tune pauses during dialog including title",
+          "[engine][phase3][sound]") {
+    const std::string tune = R"(
+TUNE 1
+C,0,E,0,G,0,0,0,0,0,0,0,0,0,0,0
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+TMP FST
+SQR P4 P8
+)";
+    std::string src = "title\n\n" + game_src("TUNE 1\n" + tune);
+    citsy::Engine engine(src);
+    citsy::MockHost host;
+    host.dt_ms = 200;
+    engine.start(host);
+    for (int i = 0; i < 10 && engine.dialog_active(); ++i) {
+        engine.update(host);
+        const auto& snap = host.snapshots.back();
+        CHECK_FALSE(snap.sound1.active);
+        CHECK_FALSE(snap.sound2.active);
+    }
+    REQUIRE(engine.dialog_active());
+    tap(engine, host, citsy::Button::Ok);
+    CHECK_FALSE(engine.dialog_active());
+    bool heard = false;
+    for (int i = 0; i < 20; ++i) {
+        engine.update(host);
+        const auto& snap = host.snapshots.back();
+        if (snap.sound1.active || snap.sound2.active) heard = true;
+    }
+    CHECK(heard);
+}
+
 TEST_CASE("engine: {item} by name and locked exit", "[engine][phase3][inventory]") {
     std::string extra = "ITM 0 3,4\n";
     extra += "EXT 5,4 1 3,3 DLG DLG_L\n\n";

@@ -164,7 +164,26 @@ TEST_CASE("textbox: rainbow uses reserved hue indices", "[font][textbox][rbw]") 
     CHECK(count_eq(pix, citsy::kTextboxWhite) == 0);
 }
 
-TEST_CASE("textbox: rainbow is a horizontal gradient", "[font][textbox][rbw]") {
+TEST_CASE("textbox: rainbow is uniform within each character", "[font][textbox][rbw]") {
+    auto f = citsy::default_font();
+    auto pix = citsy::render_textbox(
+        f, {span("W", citsy::GlyphFx::Rainbow)}, box());
+    const int w = 104;
+    std::uint8_t glyph_hue = 0;
+    int hue_count = 0;
+    for (int y = 0; y < 32; ++y) {
+        for (int x = 0; x < w; ++x) {
+            const auto p = pix[static_cast<std::size_t>(y * w + x)];
+            if (!is_rainbow(p)) continue;
+            if (hue_count == 0) glyph_hue = p;
+            else CHECK(p == glyph_hue);
+            ++hue_count;
+        }
+    }
+    CHECK(hue_count > 1);
+}
+
+TEST_CASE("textbox: rainbow varies across characters", "[font][textbox][rbw]") {
     auto f = citsy::default_font();
     auto pix = citsy::render_textbox(
         f, {span("MMMMMMMM", citsy::GlyphFx::Rainbow)}, box());
@@ -185,9 +204,9 @@ TEST_CASE("textbox: rainbow is a horizontal gradient", "[font][textbox][rbw]") {
 }
 
 TEST_CASE("textbox: rainbow scrolls right over time", "[font][textbox][rbw]") {
-    CHECK(citsy::rainbow_index(0, 0) == citsy::rainbow_index(8, 400));
-    CHECK(citsy::rainbow_index(16, 0) == citsy::rainbow_index(24, 400));
-    CHECK(citsy::rainbow_index(0, 0) != citsy::rainbow_index(0, 400.0 / 16.0));
+    CHECK(citsy::rainbow_index(0, 0) == citsy::rainbow_index(8, citsy::kTextboxRainbowScrollMs));
+    CHECK(citsy::rainbow_index(16, 0) == citsy::rainbow_index(24, citsy::kTextboxRainbowScrollMs));
+    CHECK(citsy::rainbow_index(0, 0) != citsy::rainbow_index(0, citsy::kTextboxRainbowScrollMs / 16.0));
 
     auto f = citsy::default_font();
     auto a_layout = box();

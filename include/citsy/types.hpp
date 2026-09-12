@@ -16,8 +16,9 @@ inline constexpr int kVideoSize = 128;  ///< Main framebuffer edge in pixels
 /// Textbox buffer indices. Hosts should read these from the palette passed to
 /// present() — the engine installs true black / white / rainbow hues there
 /// while a dialog is open (they are independent of the room palette).
-inline constexpr std::uint8_t kTextboxRainbow0    = 224;
+inline constexpr std::uint8_t kTextboxRainbow0     = 224;
 inline constexpr int          kTextboxRainbowCount = 16;
+inline constexpr double       kTextboxRainbowScrollMs = 800.0;
 inline constexpr std::uint8_t kTextboxWhite       = 253;
 inline constexpr std::uint8_t kTextboxBlack       = 254;
 

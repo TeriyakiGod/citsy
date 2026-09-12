@@ -108,7 +108,11 @@ void SoundPlayer::stop_tune() {
     if (!blip_active_) ch1_ = {};
 }
 
-void SoundPlayer::pause_tune() { tune_paused_ = true; }
+void SoundPlayer::pause_tune() {
+    tune_paused_ = true;
+    if (!blip_active_) ch1_ = {};
+    ch2_ = {};
+}
 void SoundPlayer::resume_tune() { tune_paused_ = false; }
 
 void SoundPlayer::update(double dt_ms, const Game& game) {

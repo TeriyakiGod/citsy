@@ -428,8 +428,8 @@ void install_textbox_colors(std::vector<Color>& pal) {
 }
 
 std::uint8_t rainbow_index(int x, double time_ms) {
-    // Horizontal gradient that scrolls right: hue(x, t) = fract(x/8 - t/400).
-    double phase = static_cast<double>(x) / 8.0 - time_ms / 400.0;
+    // Horizontal gradient that scrolls right: hue(x, t) = fract(x/8 - t/scroll).
+    double phase = static_cast<double>(x) / 8.0 - time_ms / kTextboxRainbowScrollMs;
     phase = phase - std::floor(phase);
     int idx = static_cast<int>(phase * kTextboxRainbowCount);
     if (idx < 0) idx = 0;
@@ -650,15 +650,14 @@ std::vector<std::uint8_t> render_textbox(
             dx += (hsh % 3) - 1;
             dy += ((hsh / 3) % 3) - 1;
         }
+        if (p.effects & GlyphFx::Rainbow) {
+            color = rainbow_index(p.x, t);
+        }
         if (!p.data) continue;
         for (int yy = 0; yy < p.gh; ++yy) {
             for (int xx = 0; xx < p.gw; ++xx) {
                 if (!p.data[static_cast<std::size_t>(yy * p.gw + xx)]) continue;
-                std::uint8_t px = color;
-                if (p.effects & GlyphFx::Rainbow) {
-                    px = rainbow_index(p.x + xx, t);
-                }
-                put(p.x + p.offx + xx + dx, p.y + p.offy + yy + dy, px);
+                put(p.x + p.offx + xx + dx, p.y + p.offy + yy + dy, color);
             }
         }
     }

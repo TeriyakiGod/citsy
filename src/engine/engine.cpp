@@ -99,6 +99,7 @@ struct Engine::Impl {
     bool ending_hold = false;  // ended, waiting for dismiss
     bool narrating   = false;
     bool pending_end = false;
+    bool tune_paused_for_dialog_ = false;
     std::optional<Exit> queued_script_exit;
 
     BitsyFont   font;
@@ -326,6 +327,7 @@ struct Engine::Impl {
         anim_frame = 0;
         gfx_mode = GraphicsMode::Map;
         sound.stop_tune();
+        tune_paused_for_dialog_ = false;
 
         load_room_palette();
         apply_room_avatar();
@@ -510,6 +512,11 @@ struct Engine::Impl {
             narrating = true;
             running = false;
         }
+
+        if (tune_paused_for_dialog_ && !dlg.active()) {
+            sound.resume_tune();
+            tune_paused_for_dialog_ = false;
+        }
     }
 
     void start_dialog(std::string source, std::function<void()> on_end,
@@ -521,6 +528,10 @@ struct Engine::Impl {
         if (!dlg.active()) {
             finish_dialog(false);
         } else {
+            if (sound.tune_playing()) {
+                sound.pause_tune();
+                tune_paused_for_dialog_ = true;
+            }
             refresh_textbox();
         }
     }

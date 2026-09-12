@@ -32,11 +32,11 @@ Tags combine: `{wvy}{rbw}hello` is both wavy and rainbow. A close tag (`{/wvy}`)
 |---|---|
 | `{wvy}` / `{/wvy}` | Vertical sine offset (animated) |
 | `{shk}` / `{/shk}` | Jitter offset (animated) |
-| `{rbw}` / `{/rbw}` | Horizontal rainbow gradient that scrolls right |
+| `{rbw}` / `{/rbw}` | Rainbow ink per character; hue scrolls right |
 | `{clr}` / `{clr1}` / `{clr2}` / `{clr3}` | Ink uses palette index 1, 2, or 3 |
 | `{clr n}` | Ink uses palette index `n` |
 
-Rainbow wins over `{clr}` when both are on. `{rbw}` is a per-pixel hue from the glyph's layout `x` and `time_ms`.
+Rainbow wins over `{clr}` when both are on. `{rbw}` picks one hue per character from its layout `x` and `time_ms`.
 
 ---
 
