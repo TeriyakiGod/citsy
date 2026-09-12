@@ -150,6 +150,8 @@ Phase 1 extracts linear text pages from `DLG` source (`extract_dialog_pages`). T
 - `map2` — items, non-avatar sprites, then the avatar
 - `video` — 128×128 colour indices (tiles opaque, sprites/items transparent)
 
+When `kOccludeTilesUnderSprites` is true (default, matching Bitsy), a tile whose cell is occupied by any sprite — including the avatar — is not drawn: `map1` stays 0 and the video cell remains the room background so sprite transparency does not reveal the tile. Items do not occlude tiles. Set the constant to `false` to composite tiles as a background layer beneath sprites.
+
 The host still receives `GraphicsMode::Map` during gameplay and `GraphicsMode::Video` during transitions. Animated drawings use the current flipbook frame (400 ms). `BGC` / transparent backgrounds are honoured when compositing.
 
 ### Font, sound, and transitions

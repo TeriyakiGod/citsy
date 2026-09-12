@@ -38,6 +38,7 @@ struct ComposeBuffers {
 };
 
 /// Fill map1 (tiles), map2 (items / sprites / avatar), and the 128×128 video buffer.
+/// When kOccludeTilesUnderSprites is true, map1 / video skip tiles under sprites.
 void compose_room(const ComposeState& state, ComposeBuffers buffers);
 
 } // namespace citsy

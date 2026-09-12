@@ -103,6 +103,19 @@ static constexpr std::string_view kKeyArt = R"(ITM 0
 NAME key
 )";
 
+// Fully opaque floor tile (not a wall) so sprite transparency is visible.
+static constexpr std::string_view kSolidTile = R"(TIL s
+11111111
+11111111
+11111111
+11111111
+11111111
+11111111
+11111111
+11111111
+NAME solid
+)";
+
 // Bitsy segments are blank-line delimited — join them so the parser
 // does not swallow SPR/TIL/DLG into the previous block.
 static std::string bitsy_game(std::initializer_list<std::string> segments) {
@@ -359,6 +372,79 @@ TEST_CASE("sim: npc sprite is drawn on map2", "[engine][sim][render]") {
     const auto* snap = host.last_snapshot();
     REQUIRE(snap != nullptr);
     CHECK(snap->map2[map_i(7, 4)] != 0);
+}
+
+TEST_CASE("sim: tiles under sprites are not drawn", "[engine][sim][render][occlusion]") {
+    auto src = bitsy_game({
+        std::string(kPal),
+        room0(grid_with([](int x, int y) {
+            return (x == 4 && y == 4) || (x == 5 && y == 4) || (x == 7 && y == 4)
+                       ? "s"
+                       : "0";
+        })),
+        std::string(kSolidTile),
+        avatar_at(4, 4),
+        std::string(kNpcArt) + "POS 0 7,4\n",
+    });
+    citsy::Engine engine(src);
+    citsy::MockHost host;
+    engine.start(host);
+    engine.update(host);
+
+    const auto* snap = host.last_snapshot();
+    REQUIRE(snap != nullptr);
+
+    // Overlay order is unchanged: avatar and npc still occupy map2.
+    CHECK(snap->map2[map_i(4, 4)] == static_cast<std::uint8_t>('A'));
+    CHECK(snap->map2[map_i(7, 4)] != 0);
+
+    // Neighbouring floor tile with no sprite stays on map1 / video.
+    CHECK(snap->map1[map_i(5, 4)] == static_cast<std::uint8_t>('s'));
+    CHECK(snap->video[video_i(5 * 8 + 0, 4 * 8 + 0)] == 1);
+
+    // Avatar frame row 0 is 00011000 — (0,0) is transparent, (3,0) is ink.
+    const auto avatar_gap = snap->video[video_i(4 * 8 + 0, 4 * 8 + 0)];
+    const auto avatar_ink = snap->video[video_i(4 * 8 + 3, 4 * 8 + 0)];
+    CHECK(avatar_ink == 2);
+
+    // NPC frame row 0 is 00111100 — (0,0) is transparent, (2,0) is ink.
+    const auto npc_gap = snap->video[video_i(7 * 8 + 0, 4 * 8 + 0)];
+    const auto npc_ink = snap->video[video_i(7 * 8 + 2, 4 * 8 + 0)];
+    CHECK(npc_ink == 2);
+
+    if constexpr (citsy::kOccludeTilesUnderSprites) {
+        CHECK(snap->map1[map_i(4, 4)] == 0);
+        CHECK(snap->map1[map_i(7, 4)] == 0);
+        CHECK(avatar_gap == 0);
+        CHECK(npc_gap == 0);
+    } else {
+        CHECK(snap->map1[map_i(4, 4)] == static_cast<std::uint8_t>('s'));
+        CHECK(snap->map1[map_i(7, 4)] == static_cast<std::uint8_t>('s'));
+        CHECK(avatar_gap == 1);
+        CHECK(npc_gap == 1);
+    }
+}
+
+TEST_CASE("sim: items do not occlude tiles", "[engine][sim][render][occlusion]") {
+    auto src = bitsy_game({
+        std::string(kPal),
+        room0(grid_with([](int x, int y) { return (x == 6 && y == 4) ? "s" : "0"; }),
+              "ITM 0 6,4\n"),
+        std::string(kSolidTile),
+        avatar_at(4, 4),
+        std::string(kKeyArt),
+    });
+    citsy::Engine engine(src);
+    citsy::MockHost host;
+    engine.start(host);
+    engine.update(host);
+
+    const auto* snap = host.last_snapshot();
+    REQUIRE(snap != nullptr);
+    CHECK(snap->map1[map_i(6, 4)] == static_cast<std::uint8_t>('s'));
+    CHECK(snap->map2[map_i(6, 4)] != 0);
+    // Key frame row 0 is empty; the solid tile should still show through.
+    CHECK(snap->video[video_i(6 * 8 + 0, 4 * 8 + 0)] == 1);
 }
 
 // ===========================================================================

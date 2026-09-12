@@ -66,8 +66,27 @@ void compose_room(const ComposeState& state, ComposeBuffers buffers) {
         return static_cast<std::size_t>(y * kMapSize + x);
     };
 
+    // Bitsy skips tiles under sprites so sprite transparency shows the room
+    // background, not the tile. Items still draw on top of tiles as usual.
+    std::array<bool, kMapSize * kMapSize> sprite_here{};
+    if constexpr (kOccludeTilesUnderSprites) {
+        auto mark = [&](int sx, int sy) {
+            if (in_bounds(sx, sy)) sprite_here[map_index(sx, sy)] = true;
+        };
+        mark(state.avatar_x, state.avatar_y);
+        for (const auto& [id, spr] : game.sprites) {
+            if (id == Game::kAvatarId) continue;
+            if (!spr.position) continue;
+            if (spr.position->room_id != state.room_id) continue;
+            mark(spr.position->x, spr.position->y);
+        }
+    }
+
     for (int y = 0; y < kMapSize; ++y) {
         for (int x = 0; x < kMapSize; ++x) {
+            if constexpr (kOccludeTilesUnderSprites) {
+                if (sprite_here[map_index(x, y)]) continue;
+            }
             const std::string& tid = room.tiles[static_cast<std::size_t>(y)][static_cast<std::size_t>(x)];
             buffers.map1[map_index(x, y)] = drawing_code(tid);
             if (tid.empty() || tid == "0") continue;
