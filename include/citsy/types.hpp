@@ -21,6 +21,8 @@ inline constexpr int          kTextboxRainbowCount = 16;
 /// Bitsy `RainbowEffect`: `(time / 100) - char.col * 0.5`.
 inline constexpr double       kTextboxRainbowTimeMs    = 70.0;
 inline constexpr double       kTextboxRainbowColShift  = 0.5;
+/// `{wvy}` sine phase rate: `sin(time_ms * speed + index * phase)`.
+inline constexpr double       kTextboxWavySpeed        = 0.005;
 inline constexpr std::uint8_t kTextboxWhite       = 253;
 inline constexpr std::uint8_t kTextboxBlack       = 254;
 

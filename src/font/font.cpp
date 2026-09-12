@@ -653,7 +653,7 @@ std::vector<std::uint8_t> render_textbox(
             ? kTextboxWhite
             : static_cast<std::uint8_t>(p.color);
         if (p.effects & GlyphFx::Wavy) {
-            dy += static_cast<int>(std::sin((t * 0.012) + p.index * 0.7) * 2.0);
+            dy += static_cast<int>(std::sin((t * kTextboxWavySpeed) + p.index * 0.7) * 2.0);
         }
         if (p.effects & GlyphFx::Shaky) {
             const int hsh = static_cast<int>(t / 40.0) + p.index * 13;
