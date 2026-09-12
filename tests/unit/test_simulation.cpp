@@ -412,7 +412,7 @@ TEST_CASE("sim: tiles under sprites are not drawn", "[engine][sim][render][occlu
     const auto npc_ink = snap->video[video_i(7 * 8 + 2, 4 * 8 + 0)];
     CHECK(npc_ink == 2);
 
-    if constexpr (citsy::kOccludeTilesUnderSprites) {
+    if constexpr (citsy::kOccludeTilesUnderEntities) {
         CHECK(snap->map1[map_i(4, 4)] == 0);
         CHECK(snap->map1[map_i(7, 4)] == 0);
         CHECK(avatar_gap == 0);
@@ -425,10 +425,12 @@ TEST_CASE("sim: tiles under sprites are not drawn", "[engine][sim][render][occlu
     }
 }
 
-TEST_CASE("sim: items do not occlude tiles", "[engine][sim][render][occlusion]") {
+TEST_CASE("sim: tiles under items are not drawn", "[engine][sim][render][occlusion]") {
     auto src = bitsy_game({
         std::string(kPal),
-        room0(grid_with([](int x, int y) { return (x == 6 && y == 4) ? "s" : "0"; }),
+        room0(grid_with([](int x, int y) {
+            return (x == 6 && y == 4) || (x == 7 && y == 4) ? "s" : "0";
+        }),
               "ITM 0 6,4\n"),
         std::string(kSolidTile),
         avatar_at(4, 4),
@@ -441,10 +443,23 @@ TEST_CASE("sim: items do not occlude tiles", "[engine][sim][render][occlusion]")
 
     const auto* snap = host.last_snapshot();
     REQUIRE(snap != nullptr);
-    CHECK(snap->map1[map_i(6, 4)] == static_cast<std::uint8_t>('s'));
     CHECK(snap->map2[map_i(6, 4)] != 0);
-    // Key frame row 0 is empty; the solid tile should still show through.
-    CHECK(snap->video[video_i(6 * 8 + 0, 4 * 8 + 0)] == 1);
+    // Neighbouring floor tile with no item stays on map1 / video.
+    CHECK(snap->map1[map_i(7, 4)] == static_cast<std::uint8_t>('s'));
+    CHECK(snap->video[video_i(7 * 8 + 0, 4 * 8 + 0)] == 1);
+
+    // Key frame row 0 is empty; row 1 is 00011000 — (3,1) is ink.
+    const auto item_gap = snap->video[video_i(6 * 8 + 0, 4 * 8 + 0)];
+    const auto item_ink = snap->video[video_i(6 * 8 + 3, 4 * 8 + 1)];
+    CHECK(item_ink == 2);
+
+    if constexpr (citsy::kOccludeTilesUnderEntities) {
+        CHECK(snap->map1[map_i(6, 4)] == 0);
+        CHECK(item_gap == 0);
+    } else {
+        CHECK(snap->map1[map_i(6, 4)] == static_cast<std::uint8_t>('s'));
+        CHECK(item_gap == 1);
+    }
 }
 
 // ===========================================================================

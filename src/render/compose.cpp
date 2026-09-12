@@ -66,12 +66,13 @@ void compose_room(const ComposeState& state, ComposeBuffers buffers) {
         return static_cast<std::size_t>(y * kMapSize + x);
     };
 
-    // Bitsy skips tiles under sprites so sprite transparency shows the room
-    // background, not the tile. Items still draw on top of tiles as usual.
-    std::array<bool, kMapSize * kMapSize> sprite_here{};
-    if constexpr (kOccludeTilesUnderSprites) {
+    // Bitsy skips tiles under sprites and items so entity transparency shows
+    // the room background, not the tile. Draw order is unchanged: tiles,
+    // then items, then sprites, then the avatar.
+    std::array<bool, kMapSize * kMapSize> entity_here{};
+    if constexpr (kOccludeTilesUnderEntities) {
         auto mark = [&](int sx, int sy) {
-            if (in_bounds(sx, sy)) sprite_here[map_index(sx, sy)] = true;
+            if (in_bounds(sx, sy)) entity_here[map_index(sx, sy)] = true;
         };
         mark(state.avatar_x, state.avatar_y);
         for (const auto& [id, spr] : game.sprites) {
@@ -80,12 +81,17 @@ void compose_room(const ComposeState& state, ComposeBuffers buffers) {
             if (spr.position->room_id != state.room_id) continue;
             mark(spr.position->x, spr.position->y);
         }
+        if (state.items) {
+            for (const RoomItem& ri : *state.items) {
+                mark(ri.x, ri.y);
+            }
+        }
     }
 
     for (int y = 0; y < kMapSize; ++y) {
         for (int x = 0; x < kMapSize; ++x) {
-            if constexpr (kOccludeTilesUnderSprites) {
-                if (sprite_here[map_index(x, y)]) continue;
+            if constexpr (kOccludeTilesUnderEntities) {
+                if (entity_here[map_index(x, y)]) continue;
             }
             const std::string& tid = room.tiles[static_cast<std::size_t>(y)][static_cast<std::size_t>(x)];
             buffers.map1[map_index(x, y)] = drawing_code(tid);

@@ -14,9 +14,9 @@ inline constexpr int kMapSize   = 16;   ///< Room width/height in tiles
 inline constexpr int kVideoSize = 128;  ///< Main framebuffer edge in pixels
 
 /// When true (Bitsy default), skip drawing a background tile whose grid cell
-/// is occupied by any sprite, including the avatar. Items do not occlude.
-/// Set false to composite tiles as a layer beneath sprites.
-inline constexpr bool kOccludeTilesUnderSprites = true;
+/// is occupied by a sprite (including the avatar) or an item. Set false to
+/// composite tiles as a layer beneath entities.
+inline constexpr bool kOccludeTilesUnderEntities = true;
 
 /// Textbox buffer indices. Hosts should read these from the palette passed to
 /// present() — the engine installs true black / white / rainbow hues there
