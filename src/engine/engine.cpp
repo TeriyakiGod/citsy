@@ -93,6 +93,8 @@ struct Engine::Impl {
     std::vector<std::vector<TextSpan>> textbox_pages_;
     std::size_t                textbox_page_ = 0;
     double                     dialog_time_ms = 0;
+    double                     type_page_start_ms_ = 0;
+    bool                       type_skip_ = false;
     std::string                lock_key;
     bool                       lock_is_ending = false;
 
@@ -318,6 +320,8 @@ struct Engine::Impl {
         narrating = false;
         pending_end = false;
         queued_script_exit.reset();
+        type_page_start_ms_ = 0;
+        type_skip_ = false;
         cur_dir = Dir::None;
         hold_timer_ms = 0;
         any_held = false;
@@ -414,8 +418,22 @@ struct Engine::Impl {
         }
         const auto& page = textbox_pages_[textbox_page_];
         dialog_plain = spans_to_plain(page);
-        layout.show_arrow = true;
+        layout.visible_char_count = revealed_chars(count_printable_chars(page));
+        layout.show_arrow = is_page_complete(page, layout.visible_char_count);
         textbox_pixels = render_textbox(font, page, layout);
+    }
+
+    void reset_typewriter() {
+        type_page_start_ms_ = dialog_time_ms;
+        type_skip_ = false;
+    }
+
+    [[nodiscard]] int revealed_chars(int total) const {
+        if (total <= 0) return 0;
+        if (type_skip_) return total;
+        const double elapsed = dialog_time_ms - type_page_start_ms_;
+        const int n = 1 + static_cast<int>(elapsed / kTextboxTypewriterMsPerChar);
+        return n < total ? n : total;
     }
 
     [[nodiscard]] std::string_view dialog_line() const {
@@ -523,6 +541,7 @@ struct Engine::Impl {
                       std::string script_id = {}) {
         dialog_time_ms = 0;
         textbox_page_ = 0;
+        reset_typewriter();
         if (script_id.empty()) script_id = lock_key;
         dlg.start(std::move(source), make_world(), std::move(script_id), std::move(on_end));
         if (!dlg.active()) {
@@ -538,6 +557,15 @@ struct Engine::Impl {
 
     void advance_dialog() {
         if (!dlg.active()) return;
+        if (!textbox_pages_.empty()) {
+            const auto& page = textbox_pages_[textbox_page_];
+            if (!is_page_complete(page, revealed_chars(count_printable_chars(page)))) {
+                type_skip_ = true;
+                refresh_textbox();
+                return;
+            }
+        }
+        reset_typewriter();
         if (textbox_page_ + 1 < textbox_pages_.size()) {
             ++textbox_page_;
             refresh_textbox();

@@ -99,9 +99,25 @@ void tap(citsy::Engine& e, citsy::MockHost& h, citsy::Button b) {
     e.update(h);
 }
 
+/// Skip remaining typing if needed, then advance / dismiss the page.
+void press_ok(citsy::Engine& e, citsy::MockHost& h) {
+    const auto before = std::string(e.dialog_line());
+    tap(e, h, citsy::Button::Ok);
+    if (e.dialog_active() && std::string(e.dialog_line()) == before) {
+        tap(e, h, citsy::Button::Ok);
+    }
+}
+
+void finish_typing(citsy::Engine& e, citsy::MockHost& h) {
+    const double saved = h.dt_ms;
+    h.dt_ms = 10'000;
+    e.update(h);
+    h.dt_ms = saved;
+}
+
 void dismiss_dialog(citsy::Engine& e, citsy::MockHost& h) {
     int guard = 32;
-    while (e.dialog_active() && guard--) tap(e, h, citsy::Button::Ok);
+    while (e.dialog_active() && guard--) press_ok(e, h);
     REQUIRE_FALSE(e.dialog_active());
 }
 
@@ -427,6 +443,150 @@ TEST_CASE("paginate: preserves effects across a page break",
 }
 
 // ---------------------------------------------------------------------------
+// Typewriter / letter-by-letter reveal
+// ---------------------------------------------------------------------------
+
+TEST_CASE("textbox: visible_char_count hides later printable glyphs",
+          "[font][textbox][typewriter]") {
+    auto f = citsy::default_font();
+    const auto sp = span("HELLO");
+    auto layout = box();
+
+    layout.visible_char_count = 0;
+    auto none = citsy::render_textbox(f, {sp}, layout);
+    CHECK(count_eq(none, citsy::kTextboxWhite) == 0);
+
+    layout.visible_char_count = 1;
+    auto one = citsy::render_textbox(f, {sp}, layout);
+    layout.visible_char_count = -1;
+    auto all = citsy::render_textbox(f, {sp}, layout);
+    CHECK(count_eq(one, citsy::kTextboxWhite) > 0);
+    CHECK(count_eq(one, citsy::kTextboxWhite) < count_eq(all, citsy::kTextboxWhite));
+    CHECK(count_eq(all, citsy::kTextboxWhite) ==
+          count_eq(citsy::render_textbox(f, {sp}, box()), citsy::kTextboxWhite));
+}
+
+TEST_CASE("textbox: spaces and newlines do not consume the visible budget",
+          "[font][textbox][typewriter]") {
+    auto f = citsy::default_font();
+    CHECK(citsy::count_printable_chars({span("Hi")}) == 2);
+    CHECK(citsy::count_printable_chars({span("A B")}) == 2);
+    CHECK(citsy::count_printable_chars({span("A\nB")}) == 2);
+    CHECK(citsy::count_printable_chars({span("  \n")}) == 0);
+
+    citsy::TextSpan drawing;
+    drawing.is_drawing = true;
+    drawing.drawing.fill(1);
+    CHECK(citsy::count_printable_chars({drawing}) == 1);
+    CHECK(citsy::count_printable_chars({span("A"), drawing, span(" B")}) == 3);
+
+    auto layout = box();
+    layout.visible_char_count = 1;
+    auto spaced = citsy::render_textbox(f, {span("A B")}, layout);
+    auto just_a = citsy::render_textbox(f, {span("A")}, layout);
+    CHECK(count_eq(spaced, citsy::kTextboxWhite) ==
+          count_eq(just_a, citsy::kTextboxWhite));
+
+    layout.visible_char_count = 2;
+    auto both = citsy::render_textbox(f, {span("A B")}, layout);
+    CHECK(count_eq(both, citsy::kTextboxWhite) >
+          count_eq(spaced, citsy::kTextboxWhite));
+}
+
+TEST_CASE("textbox: wrapping stays put while characters type in",
+          "[font][textbox][typewriter][wrap]") {
+    auto f = citsy::default_font();
+    auto layout = box(53, 32);  // HELLO WORLD wraps WORLD to row 2
+    const auto sp = span("HELLO WORLD");
+
+    layout.visible_char_count = 5;  // HELLO; WORLD is reserved on row 2
+    auto partial = citsy::render_textbox(f, {sp}, layout);
+    CHECK(ink_on_row_range(partial, 53, 2, 10) > 0);
+    CHECK(ink_on_row_range(partial, 53, 11, 19) == 0);
+    bool split_on_row1 = false;
+    for (int y = 2; y < 10; ++y) {
+        for (int x = 38; x < 50; ++x) {
+            if (partial[static_cast<std::size_t>(y * 53 + x)] == citsy::kTextboxWhite)
+                split_on_row1 = true;
+        }
+    }
+    CHECK_FALSE(split_on_row1);
+
+    layout.visible_char_count = 6;  // + W of WORLD, still on row 2
+    auto more = citsy::render_textbox(f, {sp}, layout);
+    CHECK(ink_on_row_range(more, 53, 11, 19) > 0);
+    split_on_row1 = false;
+    for (int y = 2; y < 10; ++y) {
+        for (int x = 38; x < 50; ++x) {
+            if (more[static_cast<std::size_t>(y * 53 + x)] == citsy::kTextboxWhite)
+                split_on_row1 = true;
+        }
+    }
+    CHECK_FALSE(split_on_row1);
+}
+
+TEST_CASE("textbox: rainbow col is stable under a reveal boundary",
+          "[font][textbox][typewriter][rbw]") {
+    auto f = citsy::default_font();
+    auto layout = box();
+    layout.visible_char_count = 1;
+    auto prefix = citsy::render_textbox(
+        f, {span("WMMMM", citsy::GlyphFx::Rainbow)}, layout);
+    auto only = citsy::render_textbox(
+        f, {span("W", citsy::GlyphFx::Rainbow)}, layout);
+    CHECK(prefix == only);
+}
+
+TEST_CASE("textbox: wavy index is stable under a reveal boundary",
+          "[font][textbox][typewriter][fx]") {
+    auto f = citsy::default_font();
+    auto layout = box();
+    layout.time_ms = 80;
+    layout.visible_char_count = 2;
+    auto prefix = citsy::render_textbox(
+        f, {span("WAVE", citsy::GlyphFx::Wavy)}, layout);
+    auto only = citsy::render_textbox(
+        f, {span("WA", citsy::GlyphFx::Wavy)}, layout);
+    CHECK(prefix == only);
+}
+
+TEST_CASE("is_page_complete covers the printable budget",
+          "[font][textbox][typewriter]") {
+    CHECK(citsy::is_page_complete({span("Hi")}, -1));
+    CHECK(citsy::is_page_complete({span("Hi")}, 2));
+    CHECK(citsy::is_page_complete({span("Hi")}, 99));
+    CHECK_FALSE(citsy::is_page_complete({span("Hi")}, 0));
+    CHECK_FALSE(citsy::is_page_complete({span("Hi")}, 1));
+    CHECK(citsy::is_page_complete({span("A B")}, 2));
+    CHECK(citsy::is_page_complete({}, 0));
+}
+
+TEST_CASE("textbox: drawings count as one printable glyph",
+          "[font][textbox][typewriter]") {
+    auto f = citsy::default_font();
+    citsy::TextSpan drawing;
+    drawing.is_drawing = true;
+    drawing.drawing.fill(1);
+    drawing.drawing_color = citsy::kTextboxWhite;
+
+    auto layout = box();
+    layout.visible_char_count = 0;
+    auto hidden = citsy::render_textbox(f, {span("A"), drawing}, layout);
+    CHECK(count_eq(hidden, citsy::kTextboxWhite) == 0);
+
+    layout.visible_char_count = 1;
+    auto letter = citsy::render_textbox(f, {span("A"), drawing}, layout);
+    auto just_a = citsy::render_textbox(f, {span("A")}, layout);
+    CHECK(count_eq(letter, citsy::kTextboxWhite) ==
+          count_eq(just_a, citsy::kTextboxWhite));
+
+    layout.visible_char_count = 2;
+    auto both = citsy::render_textbox(f, {span("A"), drawing}, layout);
+    CHECK(count_eq(both, citsy::kTextboxWhite) >
+          count_eq(letter, citsy::kTextboxWhite));
+}
+
+// ---------------------------------------------------------------------------
 // Engine integration
 // ---------------------------------------------------------------------------
 
@@ -445,14 +605,14 @@ TEST_CASE("engine: long dialog splits across screens", "[engine][textbox][page]"
         REQUIRE(chunk.find('\n') == std::string::npos);
         seen += chunk;
         ++screens;
-        tap(engine, host, citsy::Button::Ok);
+        press_ok(engine, host);
         REQUIRE(screens < 20);
     }
     CHECK(seen == title);
     CHECK(screens >= 2);
 }
 
-TEST_CASE("engine: short dialog still dismisses on one Ok",
+TEST_CASE("engine: short dialog dismisses after typing completes",
           "[engine][textbox][page]") {
     citsy::Engine engine(game_src("", "hi"));
     citsy::MockHost host;
@@ -460,7 +620,7 @@ TEST_CASE("engine: short dialog still dismisses on one Ok",
     engine.update(host);
     REQUIRE(engine.dialog_active());
     CHECK(engine.dialog_line() == "hi");
-    tap(engine, host, citsy::Button::Ok);
+    press_ok(engine, host);
     CHECK_FALSE(engine.dialog_active());
 }
 
@@ -472,10 +632,10 @@ TEST_CASE("engine: {p} still starts a new dialog page after screens",
     engine.update(host);
     REQUIRE(engine.dialog_active());
     CHECK(engine.dialog_line() == "one");
-    tap(engine, host, citsy::Button::Ok);
+    press_ok(engine, host);
     REQUIRE(engine.dialog_active());
     CHECK(engine.dialog_line() == "two");
-    tap(engine, host, citsy::Button::Ok);
+    press_ok(engine, host);
     CHECK_FALSE(engine.dialog_active());
 }
 
@@ -484,7 +644,7 @@ TEST_CASE("engine: open dialog installs black white and rainbow palette slots",
     citsy::Engine engine(game_src("", "hello"));
     citsy::MockHost host;
     engine.start(host);
-    engine.update(host);
+    finish_typing(engine, host);
     auto* snap = host.last_snapshot();
     REQUIRE(snap != nullptr);
     REQUIRE(snap->textbox_visible);
@@ -501,7 +661,7 @@ TEST_CASE("engine: rainbow dialog paints reserved indices",
     citsy::Engine engine(game_src("", "\"{rbw}RAINBOW TEXT\""));
     citsy::MockHost host;
     engine.start(host);
-    engine.update(host);
+    finish_typing(engine, host);
     auto* snap = host.last_snapshot();
     REQUIRE(snap != nullptr);
     CHECK(rainbow_ink(snap->textbox_pixels) > 20);
@@ -522,6 +682,56 @@ TEST_CASE("engine: rainbow animation changes pixels over time",
     auto* later = host.last_snapshot();
     REQUIRE(later != nullptr);
     CHECK(later->textbox_pixels != a);
+}
+
+bool continue_arrow_lit(const std::vector<std::uint8_t>& pix, int w, int h) {
+    const int ax = w - 5;
+    const int ay = h - 4;
+    auto at = [&](int x, int y) {
+        return pix[static_cast<std::size_t>(y * w + x)] == citsy::kTextboxWhite;
+    };
+    return at(ax, ay) && at(ax - 1, ay - 1) && at(ax + 1, ay - 1) && at(ax, ay - 1);
+}
+
+TEST_CASE("engine: typewriter reveals letters over time",
+          "[engine][textbox][typewriter]") {
+    citsy::Engine engine(game_src("", "HELLO"));
+    citsy::MockHost host;
+    host.dt_ms = 16.667;
+    engine.start(host);
+    engine.update(host);
+    auto* early = host.last_snapshot();
+    REQUIRE(early != nullptr);
+    const int early_ink = count_eq(early->textbox_pixels, citsy::kTextboxWhite);
+    CHECK(early_ink > 0);
+    CHECK_FALSE(continue_arrow_lit(early->textbox_pixels, 104, 32));
+
+    finish_typing(engine, host);
+    auto* done = host.last_snapshot();
+    REQUIRE(done != nullptr);
+    CHECK(count_eq(done->textbox_pixels, citsy::kTextboxWhite) > early_ink);
+    CHECK(continue_arrow_lit(done->textbox_pixels, 104, 32));
+}
+
+TEST_CASE("engine: Ok skips remaining typing then a second Ok advances",
+          "[engine][textbox][typewriter]") {
+    citsy::Engine engine(game_src("", "\"HELLO{p}BYE\""));
+    citsy::MockHost host;
+    engine.start(host);
+    engine.update(host);
+    REQUIRE(engine.dialog_active());
+    CHECK(engine.dialog_line() == "HELLO");
+
+    tap(engine, host, citsy::Button::Ok);  // skip typing only
+    REQUIRE(engine.dialog_active());
+    CHECK(engine.dialog_line() == "HELLO");
+    auto* snap = host.last_snapshot();
+    REQUIRE(snap != nullptr);
+    CHECK(continue_arrow_lit(snap->textbox_pixels, 104, 32));
+
+    tap(engine, host, citsy::Button::Ok);  // advance page
+    REQUIRE(engine.dialog_active());
+    CHECK(engine.dialog_line() == "BYE");
 }
 
 TEST_CASE("engine: cycle dialog advances on each visit, including questions",
@@ -623,7 +833,7 @@ DLG SPR_1
     tap(engine, host, citsy::Button::Right);
     REQUIRE(engine.dialog_active());
     CHECK(engine.dialog_line() == "I tend the moss");
-    tap(engine, host, citsy::Button::Ok);
+    press_ok(engine, host);
     REQUIRE(engine.dialog_active());
     CHECK(std::string(engine.dialog_line()).find("would you help me") != std::string::npos);
     dismiss_dialog(engine, host);

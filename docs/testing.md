@@ -81,7 +81,7 @@ tests/
 | `test_dialog.cpp` | `[dialog]`, `[script]` | Page extraction and script evaluation (variables, lists, items, `{end}`/`{exit}`) |
 | `test_simulation.cpp` | `[engine]`, `[sim]`, `[render]`, `[dialog]`, `[fixture]` | Movement, walls, map/video compose, sprite/item drawing, exits, linear dialog |
 | `test_phase3.cpp` | `[phase3]`, `[font]`, `[sound]`, `[transition]`, `[inventory]`, `[dialog]` | Animation, fonts, RTL, blips/tunes, `{item}`/`{property}`, titles, 8.15 extras |
-| `test_textbox.cpp` | `[textbox]`, `[font]`, `[dialog]`, `[engine]`, `[rbw]`, `[fx]`, `[wrap]`, `[page]` | Black/white textbox, `{clr}`/`{rbw}`, combinable effects, whole-word wrap, multi-screen overflow, `{cycle}` |
+| `test_textbox.cpp` | `[textbox]`, `[font]`, `[dialog]`, `[engine]`, `[rbw]`, `[fx]`, `[wrap]`, `[page]`, `[typewriter]` | Black/white textbox, `{clr}`/`{rbw}`, combinable effects, whole-word wrap, typewriter reveal, multi-screen overflow, `{cycle}` |
 
 As of Phase 3, the suite covers parser, simulation, dialog scripting, fonts, sound, and transitions.
 

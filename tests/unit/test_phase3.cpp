@@ -68,6 +68,14 @@ void tap(citsy::Engine& e, citsy::MockHost& h, citsy::Button b) {
     e.update(h);
 }
 
+void press_ok(citsy::Engine& e, citsy::MockHost& h) {
+    const auto before = std::string(e.dialog_line());
+    tap(e, h, citsy::Button::Ok);
+    if (e.dialog_active() && std::string(e.dialog_line()) == before) {
+        tap(e, h, citsy::Button::Ok);
+    }
+}
+
 } // namespace
 
 // ---------------------------------------------------------------------------
@@ -386,9 +394,9 @@ TEST_CASE("engine: ending tile ends the game after dismiss", "[engine][phase3][e
     tap(engine, host, citsy::Button::Right);
     REQUIRE(engine.dialog_active());
     CHECK(engine.dialog_line() == "You win!");
-    tap(engine, host, citsy::Button::Ok);
+    press_ok(engine, host);
     CHECK(engine.ending_active());
-    tap(engine, host, citsy::Button::Ok);
+    press_ok(engine, host);
     CHECK_FALSE(engine.is_running());
 }
 
@@ -578,7 +586,7 @@ TEST_CASE("engine: title dialog shows at start", "[engine][phase3]") {
     engine.update(host);
     REQUIRE(engine.dialog_active());
     CHECK(engine.dialog_line() == "my title");
-    tap(engine, host, citsy::Button::Ok);
+    press_ok(engine, host);
     CHECK_FALSE(engine.dialog_active());
 }
 
@@ -603,7 +611,7 @@ SQR P4 P8
         CHECK_FALSE(snap.sound2.active);
     }
     REQUIRE(engine.dialog_active());
-    tap(engine, host, citsy::Button::Ok);
+    press_ok(engine, host);
     CHECK_FALSE(engine.dialog_active());
     bool heard = false;
     for (int i = 0; i < 20; ++i) {
@@ -652,7 +660,7 @@ DLG DLG_L
     tap(engine, host, citsy::Button::Right);
     REQUIRE(engine.dialog_active());
     CHECK(engine.dialog_line() == "locked");
-    tap(engine, host, citsy::Button::Ok);
+    press_ok(engine, host);
     CHECK(engine.current_room_id() == "0");
     CHECK(engine.avatar_x() == 5);
 
@@ -664,7 +672,7 @@ DLG DLG_L
     tap(engine, host, citsy::Button::Right);
     REQUIRE(engine.dialog_active());
     CHECK(engine.dialog_line() == "opened");
-    tap(engine, host, citsy::Button::Ok);
+    press_ok(engine, host);
     CHECK(engine.current_room_id() == "1");
     CHECK(engine.inventory_count("0") == 0);
 }

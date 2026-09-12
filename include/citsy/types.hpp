@@ -23,6 +23,8 @@ inline constexpr double       kTextboxRainbowTimeMs    = 70.0;
 inline constexpr double       kTextboxRainbowColShift  = 0.5;
 /// `{wvy}` sine phase rate: `sin(time_ms * speed + index * phase)`.
 inline constexpr double       kTextboxWavySpeed        = 0.005;
+/// Bitsy `DialogBuffer.nextCharMaxTime`: milliseconds per printable glyph.
+inline constexpr double       kTextboxTypewriterMsPerChar = 50.0;
 inline constexpr std::uint8_t kTextboxWhite       = 253;
 inline constexpr std::uint8_t kTextboxBlack       = 254;
 

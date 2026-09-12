@@ -24,6 +24,8 @@ Unquoted text (common in lists) is one page unless a blank line or `{p}` splits 
 
 The dialog box is always a black rectangle (`kTextboxBlack`). Glyphs are white (`kTextboxWhite`) unless a colour tag or `{rbw}` is active. While dialog is open the engine installs those colours (and 16 rainbow hues at `kTextboxRainbow0`) into the palette passed to `present()`, so hosts can index the textbox buffer without a special case. Rainbow slots use Bitsy's three out-of-phase sines (`sin(phase)*127+128`).
 
+Letters type in one by one (50 ms per printable glyph; spaces and newlines are free). Word wrap is computed against the full page so later characters do not reflow as they appear. The continue arrow shows only after the page is fully revealed; `Ok` (or any action button) skips remaining typing, then a second press advances.
+
 ## Text effects
 
 Tags combine: `{wvy}{rbw}hello` is both wavy and rainbow. A close tag (`{/wvy}`) clears only that bit.

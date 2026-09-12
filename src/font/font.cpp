@@ -323,6 +323,36 @@ std::string spans_to_plain(const std::vector<TextSpan>& spans) {
 
 namespace {
 
+/// Spaces / newlines do not consume the typewriter budget.
+bool is_typewriter_whitespace(char32_t cp) {
+    return cp == U' ' || cp == U'\t' || cp == U'\n' || cp == U'\r' || cp == 0xA0;
+}
+
+} // namespace
+
+int count_printable_chars(const std::vector<TextSpan>& spans) {
+    int n = 0;
+    for (const auto& sp : spans) {
+        if (sp.is_drawing) {
+            ++n;
+            continue;
+        }
+        std::string_view rest = sp.text;
+        while (!rest.empty()) {
+            const char32_t cp = next_codepoint(rest);
+            if (cp != 0 && !is_typewriter_whitespace(cp)) ++n;
+        }
+    }
+    return n;
+}
+
+bool is_page_complete(const std::vector<TextSpan>& spans, int visible_char_count) {
+    if (visible_char_count < 0) return true;
+    return visible_char_count >= count_printable_chars(spans);
+}
+
+namespace {
+
 constexpr double kPi = 3.14159265358979323846;
 constexpr double kTwoPi = 2.0 * kPi;
 constexpr double kTwoPiOver3 = 2.0 * kPi / 3.0;
@@ -537,6 +567,7 @@ std::vector<std::uint8_t> render_textbox(
         int index;
         int col;
         int offx, offy;
+        int printable_i;  ///< sequential printable index; -1 = whitespace
     };
     std::vector<Placed> placed;
     Cursor c;
@@ -544,6 +575,12 @@ std::vector<std::uint8_t> render_textbox(
     c.cy = layout.margin;
     c.line_h = font.height;
     int index = 0;
+    int printable = 0;
+
+    auto place = [&](Placed p, bool counts) {
+        p.printable_i = counts ? printable++ : -1;
+        placed.push_back(p);
+    };
 
     for (const auto& sp : spans) {
         if (sp.is_drawing) {
@@ -560,7 +597,7 @@ std::vector<std::uint8_t> render_textbox(
             p.col = c.col++;
             p.offx = 0;
             p.offy = 0;
-            placed.push_back(p);
+            place(std::move(p), true);
             c.cx += kTileSize + 1;
             c.line_h = std::max(c.line_h, kTileSize);
             continue;
@@ -591,7 +628,7 @@ std::vector<std::uint8_t> render_textbox(
                 p.col = c.col++;
                 p.offx = g.offset_x;
                 p.offy = g.offset_y;
-                placed.push_back(p);
+                place(std::move(p), !is_typewriter_whitespace(cp));
                 c.cx += g.spacing;
                 c.line_h = std::max(c.line_h, g.height);
                 continue;
@@ -613,7 +650,7 @@ std::vector<std::uint8_t> render_textbox(
                 p.col = c.col++;
                 p.offx = g.offset_x;
                 p.offy = g.offset_y;
-                placed.push_back(p);
+                place(std::move(p), !is_typewriter_whitespace(cp));
                 c.cx += g.spacing;
                 c.line_h = std::max(c.line_h, g.height);
             }
@@ -648,6 +685,10 @@ std::vector<std::uint8_t> render_textbox(
 
     const double t = layout.time_ms;
     for (const auto& p : placed) {
+        if (layout.visible_char_count >= 0 && p.printable_i >= 0 &&
+            p.printable_i >= layout.visible_char_count) {
+            continue;
+        }
         int dx = 0, dy = 0;
         std::uint8_t color = p.color < 0
             ? kTextboxWhite

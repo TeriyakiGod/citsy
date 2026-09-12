@@ -156,7 +156,7 @@ The host still receives `GraphicsMode::Map` during gameplay and `GraphicsMode::V
 
 | Module | Role |
 |---|---|
-| `font/` | Parse `.bitsyfont` and blit into the textbox (built-in `ascii_small` 6×8). Background is always black; default ink is white. `{wvy}`/`{shk}`/`{rbw}`/`{clr}` combine. Whole words wrap to the next row; leftover rows become a new screen. `TEXT_DIRECTION RTL` reverses line layout. |
+| `font/` | Parse `.bitsyfont` and blit into the textbox (built-in `ascii_small` 6×8). Background is always black; default ink is white. `{wvy}`/`{shk}`/`{rbw}`/`{clr}` combine. Whole words wrap to the next row; leftover rows become a new screen. Glyphs type in over time (`visible_char_count`); wrap positions stay fixed. `TEXT_DIRECTION RTL` reverses line layout. |
 | `sound/` | Turns `BLIP` / `TUNE` data into `SoundChannel` frequency, volume, pulse, and duration. Hosts play the square waves. |
 | `transition/` | `fade_w`, `fade_b`, `wave`, `tunnel`, `slide_u`/`d`/`l`/`r` written into the 128×128 video buffer. |
 
@@ -205,6 +205,7 @@ Constants (in `types.hpp`):
 | `kTextboxRainbow0` | 224 (16 hues) |
 | `kTextboxWhite` | 253 |
 | `kTextboxBlack` | 254 |
+| `kTextboxTypewriterMsPerChar` | 50 ms |
 
 Color indices refer to the active palette passed to `present()`. Extended palettes (`COL n`) are supported in parsed data. While dialog is open the engine installs black, white, and rainbow at the reserved textbox indices.
 

@@ -136,7 +136,11 @@ static void tap(citsy::Engine& engine, citsy::MockHost& host, citsy::Button b) {
 }
 
 static void press_ok(citsy::Engine& engine, citsy::MockHost& host) {
+    const auto before = std::string(engine.dialog_line());
     tap(engine, host, citsy::Button::Ok);
+    if (engine.dialog_active() && std::string(engine.dialog_line()) == before) {
+        tap(engine, host, citsy::Button::Ok);
+    }
 }
 
 static std::size_t map_i(int x, int y) {
@@ -438,7 +442,11 @@ TEST_CASE("sim: input ignored until buttons released after dialog", "[engine][si
     tap(engine, host, citsy::Button::Right);
     REQUIRE(engine.dialog_active());
 
-    // Close dialog by holding Right (any action button continues).
+    // Finish typing, then close by holding Right (any action button continues).
+    const double saved = host.dt_ms;
+    host.dt_ms = 10'000;
+    engine.update(host);
+    host.dt_ms = saved;
     host.set_button(citsy::Button::Right, true);
     engine.update(host);
     CHECK_FALSE(engine.dialog_active());

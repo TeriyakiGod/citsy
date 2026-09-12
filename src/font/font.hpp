@@ -75,10 +75,15 @@ struct TextboxLayout {
     bool rtl   = false;
     bool show_arrow = false;
     double time_ms = 0;          ///< for wavy / shaky animation
+    /// Printable glyphs (letters, numbers, symbols, drawings) to draw.
+    /// Whitespace never consumes this budget. Negative = draw the whole page.
+    int visible_char_count = -1;
 };
 
 /// Render @p spans into a colour-index buffer of layout.width × layout.height.
 /// Background is always @c kTextboxBlack. Default ink is @c kTextboxWhite.
+/// Layout (wrap, glyph `index` / `col`) always uses the full page; @c
+/// visible_char_count only suppresses the pixel blit of later glyphs.
 [[nodiscard]] std::vector<std::uint8_t> render_textbox(
     const BitsyFont& font,
     const std::vector<TextSpan>& spans,
@@ -101,5 +106,14 @@ void install_textbox_colors(std::vector<Color>& palette);
 
 /// Concatenate span text (drawings become a space) for Engine::dialog_line().
 [[nodiscard]] std::string spans_to_plain(const std::vector<TextSpan>& spans);
+
+/// Typewriter ticks in @p spans: letters, numbers, symbols, and drawings.
+/// Spaces, tabs, and newlines are not counted.
+[[nodiscard]] int count_printable_chars(const std::vector<TextSpan>& spans);
+
+/// True when @p visible_char_count is negative (show all) or covers every
+/// printable glyph on the page.
+[[nodiscard]] bool is_page_complete(
+    const std::vector<TextSpan>& spans, int visible_char_count);
 
 } // namespace citsy
