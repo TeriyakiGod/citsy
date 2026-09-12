@@ -18,7 +18,9 @@ inline constexpr int kVideoSize = 128;  ///< Main framebuffer edge in pixels
 /// while a dialog is open (they are independent of the room palette).
 inline constexpr std::uint8_t kTextboxRainbow0     = 224;
 inline constexpr int          kTextboxRainbowCount = 16;
-inline constexpr double       kTextboxRainbowScrollMs = 800.0;
+/// Bitsy `RainbowEffect`: `(time / 100) - char.col * 0.5`.
+inline constexpr double       kTextboxRainbowTimeMs    = 70.0;
+inline constexpr double       kTextboxRainbowColShift  = 0.5;
 inline constexpr std::uint8_t kTextboxWhite       = 253;
 inline constexpr std::uint8_t kTextboxBlack       = 254;
 

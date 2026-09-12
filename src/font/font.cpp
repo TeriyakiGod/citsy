@@ -323,24 +323,27 @@ std::string spans_to_plain(const std::vector<TextSpan>& spans) {
 
 namespace {
 
-Color hue_to_rgb(double h) {
-    h = h - std::floor(h);
-    const double x = 1.0 - std::abs(std::fmod(h * 6.0, 2.0) - 1.0);
-    double r = 0, g = 0, b = 0;
-    const int sextant = static_cast<int>(h * 6.0) % 6;
-    switch (sextant) {
-        case 0: r = 1; g = x; b = 0; break;
-        case 1: r = x; g = 1; b = 0; break;
-        case 2: r = 0; g = 1; b = x; break;
-        case 3: r = 0; g = x; b = 1; break;
-        case 4: r = x; g = 0; b = 1; break;
-        default: r = 1; g = 0; b = x; break;
-    }
+constexpr double kPi = 3.14159265358979323846;
+constexpr double kTwoPi = 2.0 * kPi;
+constexpr double kTwoPiOver3 = 2.0 * kPi / 3.0;
+constexpr double kFourPiOver3 = 4.0 * kPi / 3.0;
+
+// Bitsy font.js: Math.floor(Math.sin(phase) * 127 + 128)
+std::uint8_t rainbow_channel(double phase) {
+    return static_cast<std::uint8_t>(std::floor(std::sin(phase) * 127.0 + 128.0));
+}
+
+Color rainbow_rgb(double phase) {
     return Color{
-        static_cast<std::uint8_t>(r * 255.0 + 0.5),
-        static_cast<std::uint8_t>(g * 255.0 + 0.5),
-        static_cast<std::uint8_t>(b * 255.0 + 0.5),
+        rainbow_channel(phase),
+        rainbow_channel(phase + kTwoPiOver3),
+        rainbow_channel(phase + kFourPiOver3),
     };
+}
+
+double rainbow_step(int col, double time_ms) {
+    return time_ms / kTextboxRainbowTimeMs
+        - static_cast<double>(col) * kTextboxRainbowColShift;
 }
 
 struct Cursor {
@@ -348,6 +351,7 @@ struct Cursor {
     int cy = 0;
     int line_h = 8;
     int page = 0;
+    int col = 0;
 };
 
 int max_x_of(const TextboxLayout& layout) {
@@ -367,12 +371,14 @@ bool newline(Cursor& c, const TextboxLayout& layout, int font_h, bool paginate) 
             c.cx = layout.margin;
             c.cy = layout.margin;
             c.line_h = font_h;
+            c.col = 0;
             return true;
         }
     }
     c.cx = layout.margin;
     c.cy = next;
     c.line_h = font_h;
+    c.col = 0;
     return false;
 }
 
@@ -423,15 +429,15 @@ void install_textbox_colors(std::vector<Color>& pal) {
     pal[kTextboxWhite] = Color{255, 255, 255};
     for (int i = 0; i < kTextboxRainbowCount; ++i) {
         pal[static_cast<std::size_t>(kTextboxRainbow0 + i)] =
-            hue_to_rgb(static_cast<double>(i) / kTextboxRainbowCount);
+            rainbow_rgb(kTwoPi * static_cast<double>(i) / kTextboxRainbowCount);
     }
 }
 
-std::uint8_t rainbow_index(int x, double time_ms) {
-    // Horizontal gradient that scrolls right: hue(x, t) = fract(x/8 - t/scroll).
-    double phase = static_cast<double>(x) / 8.0 - time_ms / kTextboxRainbowScrollMs;
-    phase = phase - std::floor(phase);
-    int idx = static_cast<int>(phase * kTextboxRainbowCount);
+std::uint8_t rainbow_index(int col, double time_ms) {
+    const double count = static_cast<double>(kTextboxRainbowCount);
+    double step = rainbow_step(col, time_ms);
+    step = step - count * std::floor(step / count);
+    int idx = static_cast<int>(std::floor(step));
     if (idx < 0) idx = 0;
     if (idx >= kTextboxRainbowCount) idx = kTextboxRainbowCount - 1;
     return static_cast<std::uint8_t>(kTextboxRainbow0 + idx);
@@ -529,6 +535,7 @@ std::vector<std::uint8_t> render_textbox(
         int color;
         std::uint8_t effects;
         int index;
+        int col;
         int offx, offy;
     };
     std::vector<Placed> placed;
@@ -550,6 +557,7 @@ std::vector<std::uint8_t> render_textbox(
             p.color = sp.drawing_color;
             p.effects = GlyphFx::None;
             p.index = index++;
+            p.col = c.col++;
             p.offx = 0;
             p.offy = 0;
             placed.push_back(p);
@@ -580,6 +588,7 @@ std::vector<std::uint8_t> render_textbox(
                 p.color = sp.color;
                 p.effects = sp.effects;
                 p.index = index++;
+                p.col = c.col++;
                 p.offx = g.offset_x;
                 p.offy = g.offset_y;
                 placed.push_back(p);
@@ -601,6 +610,7 @@ std::vector<std::uint8_t> render_textbox(
                 p.color = sp.color;
                 p.effects = sp.effects;
                 p.index = index++;
+                p.col = c.col++;
                 p.offx = g.offset_x;
                 p.offy = g.offset_y;
                 placed.push_back(p);
@@ -651,7 +661,7 @@ std::vector<std::uint8_t> render_textbox(
             dy += ((hsh / 3) % 3) - 1;
         }
         if (p.effects & GlyphFx::Rainbow) {
-            color = rainbow_index(p.x, t);
+            color = rainbow_index(p.col, t);
         }
         if (!p.data) continue;
         for (int yy = 0; yy < p.gh; ++yy) {

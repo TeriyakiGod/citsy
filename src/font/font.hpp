@@ -95,8 +95,9 @@ struct TextboxLayout {
 /// Install black, white, and rainbow hues at the reserved textbox indices.
 void install_textbox_colors(std::vector<Color>& palette);
 
-/// Rainbow palette index for a glyph at pixel @p x and time @p time_ms.
-[[nodiscard]] std::uint8_t rainbow_index(int x, double time_ms);
+/// Rainbow palette index for glyph column @p col at time @p time_ms.
+/// Bitsy: `(time / 100) - char.col * 0.5`, quantized onto sine RGB slots.
+[[nodiscard]] std::uint8_t rainbow_index(int col, double time_ms);
 
 /// Concatenate span text (drawings become a space) for Engine::dialog_line().
 [[nodiscard]] std::string spans_to_plain(const std::vector<TextSpan>& spans);

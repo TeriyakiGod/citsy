@@ -22,7 +22,7 @@ Unquoted text (common in lists) is one page unless a blank line or `{p}` splits 
 
 ## Textbox look
 
-The dialog box is always a black rectangle (`kTextboxBlack`). Glyphs are white (`kTextboxWhite`) unless a colour tag or `{rbw}` is active. While dialog is open the engine installs those colours (and 16 rainbow hues at `kTextboxRainbow0`) into the palette passed to `present()`, so hosts can index the textbox buffer without a special case.
+The dialog box is always a black rectangle (`kTextboxBlack`). Glyphs are white (`kTextboxWhite`) unless a colour tag or `{rbw}` is active. While dialog is open the engine installs those colours (and 16 rainbow hues at `kTextboxRainbow0`) into the palette passed to `present()`, so hosts can index the textbox buffer without a special case. Rainbow slots use Bitsy's three out-of-phase sines (`sin(phase)*127+128`).
 
 ## Text effects
 
@@ -32,11 +32,11 @@ Tags combine: `{wvy}{rbw}hello` is both wavy and rainbow. A close tag (`{/wvy}`)
 |---|---|
 | `{wvy}` / `{/wvy}` | Vertical sine offset (animated) |
 | `{shk}` / `{/shk}` | Jitter offset (animated) |
-| `{rbw}` / `{/rbw}` | Rainbow ink per character; hue scrolls right |
+| `{rbw}` / `{/rbw}` | Rainbow ink per character (Bitsy sine RGB) |
 | `{clr}` / `{clr1}` / `{clr2}` / `{clr3}` | Ink uses palette index 1, 2, or 3 |
 | `{clr n}` | Ink uses palette index `n` |
 
-Rainbow wins over `{clr}` when both are on. `{rbw}` picks one hue per character from its layout `x` and `time_ms`.
+Rainbow wins over `{clr}` when both are on. `{rbw}` picks one hue per character from Bitsy's `(time_ms / 100) - col * 0.5`.
 
 ---
 

@@ -204,9 +204,11 @@ TEST_CASE("textbox: rainbow varies across characters", "[font][textbox][rbw]") {
 }
 
 TEST_CASE("textbox: rainbow scrolls right over time", "[font][textbox][rbw]") {
-    CHECK(citsy::rainbow_index(0, 0) == citsy::rainbow_index(8, citsy::kTextboxRainbowScrollMs));
-    CHECK(citsy::rainbow_index(16, 0) == citsy::rainbow_index(24, citsy::kTextboxRainbowScrollMs));
-    CHECK(citsy::rainbow_index(0, 0) != citsy::rainbow_index(0, citsy::kTextboxRainbowScrollMs / 16.0));
+    CHECK(citsy::rainbow_index(0, 0) != citsy::rainbow_index(1, 0));
+    CHECK(citsy::rainbow_index(0, 0) ==
+          citsy::rainbow_index(2, citsy::kTextboxRainbowTimeMs));
+    CHECK(citsy::rainbow_index(0, 0) !=
+          citsy::rainbow_index(0, citsy::kTextboxRainbowTimeMs));
 
     auto f = citsy::default_font();
     auto a_layout = box();
@@ -226,9 +228,9 @@ TEST_CASE("install_textbox_colors fills reserved slots", "[font][textbox]") {
     CHECK(pal[0].r == 10);
     CHECK(pal[citsy::kTextboxBlack] == citsy::Color{0, 0, 0});
     CHECK(pal[citsy::kTextboxWhite] == citsy::Color{255, 255, 255});
-    CHECK(pal[citsy::kTextboxRainbow0].r == 255);
-    CHECK(pal[citsy::kTextboxRainbow0].g == 0);
-    CHECK(pal[citsy::kTextboxRainbow0].b == 0);
+    CHECK(pal[citsy::kTextboxRainbow0] == citsy::Color{128, 237, 18});
+    CHECK(pal[citsy::kTextboxRainbow0 + 8] == citsy::Color{128, 18, 237});
+    CHECK(citsy::rainbow_index(0, 0) == citsy::kTextboxRainbow0);
 }
 
 // ---------------------------------------------------------------------------
@@ -489,7 +491,7 @@ TEST_CASE("engine: open dialog installs black white and rainbow palette slots",
     REQUIRE(snap->palette.size() >= 256);
     CHECK(snap->palette[citsy::kTextboxBlack] == citsy::Color{0, 0, 0});
     CHECK(snap->palette[citsy::kTextboxWhite] == citsy::Color{255, 255, 255});
-    CHECK(snap->palette[citsy::kTextboxRainbow0].r == 255);
+    CHECK(snap->palette[citsy::kTextboxRainbow0] == citsy::Color{128, 237, 18});
     CHECK(count_eq(snap->textbox_pixels, citsy::kTextboxBlack) > 100);
     CHECK(count_eq(snap->textbox_pixels, citsy::kTextboxWhite) > 10);
 }
