@@ -582,7 +582,9 @@ void DialogVM::exec_block(std::string_view inner) {
             if (order.empty()) {
                 order.resize(static_cast<std::size_t>(n));
                 std::iota(order.begin(), order.end(), 0);
-                static thread_local std::mt19937 rng{std::random_device{}()};
+                // Bare-metal (STM32) has no TLS and no getentropy; keep a
+                // process-wide engine. The VM is single-threaded.
+                static std::mt19937 rng{0xC15A9u};
                 std::shuffle(order.begin(), order.end(), rng);
             }
             chosen = order.front();
