@@ -682,22 +682,11 @@ struct Engine::Impl {
         }
 
         inventory[ri.item_id] += 1;
-
-        const std::string room_id = current_room_id;
-        auto pickup = [this, room_id, index] {
-            auto it = room_items.find(room_id);
-            if (it != room_items.end() &&
-                index >= 0 && index < static_cast<int>(it->second.size())) {
-                it->second.erase(it->second.begin() + index);
-            }
-        };
+        items.erase(items.begin() + index);
 
         auto src = dialog_source(dlg_id);
-        if (src.empty()) {
-            pickup();
-            return;
-        }
-        start_dialog(std::move(src), std::move(pickup), dlg_id);
+        if (src.empty()) return;
+        start_dialog(std::move(src), {}, dlg_id);
     }
 
     void handle_sprite(const Sprite& spr) {

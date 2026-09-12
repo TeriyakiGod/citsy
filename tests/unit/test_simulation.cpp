@@ -570,13 +570,40 @@ TEST_CASE("sim: walking onto an item starts dialog and removes it", "[engine][si
     CHECK(engine.avatar_x() == 5);
     CHECK(engine.dialog_active());
     CHECK(engine.dialog_line() == "You found a key.");
-
-    press_ok(engine, host);
-    CHECK_FALSE(engine.dialog_active());
+    CHECK(engine.item_count("0") == 1);
 
     const auto* snap = host.last_snapshot();
     REQUIRE(snap != nullptr);
-    CHECK(snap->map2[map_i(5, 4)] == static_cast<std::uint8_t>('A'));  // avatar only
+    CHECK(snap->map2[map_i(5, 4)] == static_cast<std::uint8_t>('A'));  // avatar only; item gone while dialog is open
+
+    press_ok(engine, host);
+    CHECK_FALSE(engine.dialog_active());
+}
+
+TEST_CASE("sim: item dialog sees the updated inventory", "[engine][sim][inventory][dialog]") {
+    auto src = bitsy_game({
+        std::string(kPal),
+        room0(empty_grid(), "ITM 0 5,4\n"),
+        avatar_at(4, 4),
+        std::string(kKeyArt) + "DLG DLG_KEY\n",
+        R"(DLG DLG_KEY
+{
+  - {item "0"} > 0 ?
+    "Got it."
+  - else ?
+    "Empty hands."
+}
+)",
+    });
+    citsy::Engine engine(src);
+    citsy::MockHost host;
+    engine.start(host);
+
+    tap(engine, host, citsy::Button::Right);
+    CHECK(engine.dialog_active());
+    CHECK(engine.dialog_line() == "Got it.");
+    CHECK(engine.item_count("0") == 1);
+    CHECK(host.last_snapshot()->map2[map_i(5, 4)] == static_cast<std::uint8_t>('A'));
 }
 
 TEST_CASE("sim: item without dialog is removed immediately", "[engine][sim]") {
