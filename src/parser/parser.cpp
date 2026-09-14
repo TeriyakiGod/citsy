@@ -658,8 +658,10 @@ private:
 
         std::vector<std::string> body = read_body();
 
-        Room room;
-        room.id = id;
+        // Room.tiles is 256 std::string objects (~8 KiB). Pico core 0's
+        // default stack is 2 KiB in scratch SRAM, so a local Room HardFaults.
+        Room& room = game.rooms[id];
+        room.id = std::move(id);
 
         // Tile rows come first (kMapSize of them), before any sub-keys.
         int tile_rows_parsed = 0;
@@ -699,7 +701,7 @@ private:
 
         if (tile_rows_parsed != kMapSize)
             throw ParseError(
-                "room '" + id + "' has " + std::to_string(tile_rows_parsed) +
+                "room '" + room.id + "' has " + std::to_string(tile_rows_parsed) +
                 " tile rows (expected " + std::to_string(kMapSize) + ")",
                 header_line);
 
@@ -747,8 +749,6 @@ private:
             }
             ++i;
         }
-
-        game.rooms[room.id] = std::move(room);
     }
 
     // Parse one 16-element tile row (comma-separated or legacy single-char).
