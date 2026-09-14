@@ -7,12 +7,32 @@
 
 #include <array>
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
 namespace citsy {
+
+/// Heterogeneous hasher so `map.find(std::string_view)` does not allocate.
+struct TransparentStringHash {
+    using is_transparent = void;
+
+    std::size_t operator()(std::string_view sv) const noexcept {
+        return std::hash<std::string_view>{}(sv);
+    }
+    std::size_t operator()(const std::string& s) const noexcept {
+        return std::hash<std::string_view>{}(s);
+    }
+    std::size_t operator()(const char* s) const noexcept {
+        return std::hash<std::string_view>{}(s);
+    }
+};
+
+template <typename T>
+using IdMap = std::unordered_map<std::string, T, TransparentStringHash, std::equal_to<>>;
 
 // ---------------------------------------------------------------------------
 // Pixel art frame
@@ -263,21 +283,21 @@ struct Game {
     static constexpr std::string_view kAvatarId = "A";
     static constexpr std::string_view kTitleDialogId = "title";
 
-    std::unordered_map<std::string, Palette>   palettes;
-    std::unordered_map<std::string, Tile>      tiles;
-    std::unordered_map<std::string, Sprite>    sprites;
-    std::unordered_map<std::string, Item>      items;
-    std::unordered_map<std::string, Room>      rooms;
-    std::unordered_map<std::string, Dialogue>  dialogues;
-    std::unordered_map<std::string, Variable>  variables;
-    std::unordered_map<std::string, Ending>    endings;
-    std::unordered_map<std::string, Tune>      tunes;
-    std::unordered_map<std::string, Blip>      blips;
+    IdMap<Palette>   palettes;
+    IdMap<Tile>      tiles;
+    IdMap<Sprite>    sprites;
+    IdMap<Item>      items;
+    IdMap<Room>      rooms;
+    IdMap<Dialogue>  dialogues;
+    IdMap<Variable>  variables;
+    IdMap<Ending>    endings;
+    IdMap<Tune>      tunes;
+    IdMap<Blip>      blips;
 
     // Convenience accessors ------------------------------------------------
 
     [[nodiscard]] const Sprite* avatar() const {
-        auto it = sprites.find(std::string(kAvatarId));
+        auto it = sprites.find(kAvatarId);
         return it != sprites.end() ? &it->second : nullptr;
     }
 
@@ -290,15 +310,15 @@ struct Game {
     }
 
     [[nodiscard]] const Sprite* sprite(std::string_view id) const {
-        auto it = sprites.find(std::string(id));
+        auto it = sprites.find(id);
         return it != sprites.end() ? &it->second : nullptr;
     }
 
     /// Resolve a drawing / room / pal / tune / blip by id or NAME.
     template <typename T>
     [[nodiscard]] static const T* by_id_or_name(
-        const std::unordered_map<std::string, T>& map, std::string_view key) {
-        auto it = map.find(std::string(key));
+        const IdMap<T>& map, std::string_view key) {
+        auto it = map.find(key);
         if (it != map.end()) return &it->second;
         for (const auto& [id, obj] : map) {
             if (obj.name == key) return &obj;

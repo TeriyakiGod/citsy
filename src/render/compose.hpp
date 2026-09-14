@@ -24,11 +24,11 @@ struct ComposeState {
     const Game*                     game = nullptr;
     const Room*                     room = nullptr;
     const std::vector<RoomItem>*    items = nullptr;  ///< runtime item list
-    std::string                     room_id;
+    std::string_view                room_id;
     int                             avatar_x = 0;
     int                             avatar_y = 0;
     int                             anim_frame = 0;
-    std::string                     avatar_id = "A";
+    std::string_view                avatar_id = "A";
 };
 
 struct ComposeBuffers {

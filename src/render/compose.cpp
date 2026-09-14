@@ -1,6 +1,7 @@
 #include "src/render/compose.hpp"
 
 #include <algorithm>
+#include <array>
 
 namespace citsy {
 namespace {
@@ -11,22 +12,61 @@ const TileFrame* frame_of(const std::vector<TileFrame>& frames, int anim) {
     return &frames[static_cast<std::size_t>(((anim % n) + n) % n)];
 }
 
+// Opaque tile: every pixel is fg or bg. The common Bitsy floor/wall path.
+void blit_tile_opaque(std::uint8_t* dest, const TileFrame& frame,
+                      std::uint8_t fg, std::uint8_t bg) {
+    const std::uint8_t* src = frame.data();
+    for (int row = 0; row < kTileSize; ++row) {
+        std::uint8_t* d = dest + row * kVideoSize;
+        const std::uint8_t* s = src + row * kTileSize;
+        for (int col = 0; col < kTileSize; ++col) {
+            d[col] = s[col] ? fg : bg;
+        }
+    }
+}
+
+// Overlay sprite/item: ink writes fg; transparent pixels keep the dest.
+void blit_tile_overlay_transparent(std::uint8_t* dest, const TileFrame& frame,
+                                   std::uint8_t fg) {
+    const std::uint8_t* src = frame.data();
+    for (int row = 0; row < kTileSize; ++row) {
+        std::uint8_t* d = dest + row * kVideoSize;
+        const std::uint8_t* s = src + row * kTileSize;
+        for (int col = 0; col < kTileSize; ++col) {
+            if (s[col]) d[col] = fg;
+        }
+    }
+}
+
 void blit_tile(std::array<std::uint8_t, kVideoSize * kVideoSize>& video,
                int tile_x, int tile_y,
                const TileFrame& frame, std::uint8_t fg,
                int bgc, bool transparent, bool overlay) {
     const int px0 = tile_x * kTileSize;
     const int py0 = tile_y * kTileSize;
+    std::uint8_t* dest = &video[static_cast<std::size_t>(py0 * kVideoSize + px0)];
+    const std::uint8_t bg = static_cast<std::uint8_t>(std::max(0, bgc));
+
+    if (!overlay && !transparent) {
+        blit_tile_opaque(dest, frame, fg, bg);
+        return;
+    }
+    if (overlay && (transparent || bgc <= 0)) {
+        blit_tile_overlay_transparent(dest, frame, fg);
+        return;
+    }
+
+    const std::uint8_t* src = frame.data();
     for (int row = 0; row < kTileSize; ++row) {
+        std::uint8_t* d = dest + row * kVideoSize;
+        const std::uint8_t* s = src + row * kTileSize;
         for (int col = 0; col < kTileSize; ++col) {
-            const std::uint8_t pix = frame[static_cast<std::size_t>(row * kTileSize + col)];
-            auto& dest = video[static_cast<std::size_t>((py0 + row) * kVideoSize + (px0 + col))];
-            if (pix) {
-                dest = fg;
+            if (s[col]) {
+                d[col] = fg;
             } else if (!overlay) {
-                dest = transparent ? dest : static_cast<std::uint8_t>(std::max(0, bgc));
+                if (!transparent) d[col] = bg;
             } else if (!transparent && bgc > 0) {
-                dest = static_cast<std::uint8_t>(bgc);
+                d[col] = bg;
             }
         }
     }
@@ -70,6 +110,8 @@ void compose_room(const ComposeState& state, ComposeBuffers buffers) {
     // the room background, not the tile. Draw order is unchanged: tiles,
     // then items, then sprites, then the avatar.
     std::array<bool, kMapSize * kMapSize> entity_here{};
+    std::array<const Sprite*, kMapSize * kMapSize> sprites{};
+    int nsprites = 0;
     if constexpr (kOccludeTilesUnderEntities) {
         auto mark = [&](int sx, int sy) {
             if (in_bounds(sx, sy)) entity_here[map_index(sx, sy)] = true;
@@ -80,10 +122,22 @@ void compose_room(const ComposeState& state, ComposeBuffers buffers) {
             if (!spr.position) continue;
             if (spr.position->room_id != state.room_id) continue;
             mark(spr.position->x, spr.position->y);
+            if (nsprites < static_cast<int>(sprites.size())) {
+                sprites[static_cast<std::size_t>(nsprites++)] = &spr;
+            }
         }
         if (state.items) {
             for (const RoomItem& ri : *state.items) {
                 mark(ri.x, ri.y);
+            }
+        }
+    } else {
+        for (const auto& [id, spr] : game.sprites) {
+            if (id == Game::kAvatarId) continue;
+            if (!spr.position) continue;
+            if (spr.position->room_id != state.room_id) continue;
+            if (nsprites < static_cast<int>(sprites.size())) {
+                sprites[static_cast<std::size_t>(nsprites++)] = &spr;
             }
         }
     }
@@ -118,19 +172,13 @@ void compose_room(const ComposeState& state, ComposeBuffers buffers) {
         }
     }
 
-    std::vector<const Sprite*> sprites;
-    sprites.reserve(game.sprites.size());
-    for (const auto& [id, spr] : game.sprites) {
-        if (id == Game::kAvatarId) continue;
-        if (!spr.position) continue;
-        if (spr.position->room_id != state.room_id) continue;
-        sprites.push_back(&spr);
-    }
-    std::sort(sprites.begin(), sprites.end(), [](const Sprite* a, const Sprite* b) {
-        return a->id < b->id;
-    });
+    std::sort(sprites.begin(), sprites.begin() + nsprites,
+              [](const Sprite* a, const Sprite* b) {
+                  return a->id < b->id;
+              });
 
-    for (const Sprite* spr : sprites) {
+    for (int i = 0; i < nsprites; ++i) {
+        const Sprite* spr = sprites[static_cast<std::size_t>(i)];
         const int x = spr->position->x;
         const int y = spr->position->y;
         if (!in_bounds(x, y)) continue;
