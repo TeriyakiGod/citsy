@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <algorithm>
+#include <span>
 
 namespace citsy {
 namespace {
@@ -453,14 +454,22 @@ void append_run(std::vector<TextSpan>& page, const TextSpan& proto, std::string 
 
 } // namespace
 
-void install_textbox_colors(std::vector<Color>& pal) {
-    if (pal.size() < 256) pal.resize(256, Color{0, 0, 0});
+void install_textbox_colors(std::span<Color> pal) {
+    if (pal.size() <= kTextboxBlack) return;
     pal[kTextboxBlack] = Color{0, 0, 0};
     pal[kTextboxWhite] = Color{255, 255, 255};
+    const std::size_t rainbow_end =
+        static_cast<std::size_t>(kTextboxRainbow0 + kTextboxRainbowCount);
+    if (pal.size() < rainbow_end) return;
     for (int i = 0; i < kTextboxRainbowCount; ++i) {
         pal[static_cast<std::size_t>(kTextboxRainbow0 + i)] =
             rainbow_rgb(kTwoPi * static_cast<double>(i) / kTextboxRainbowCount);
     }
+}
+
+void install_textbox_colors(std::vector<Color>& pal) {
+    if (pal.size() < 256) pal.resize(256, Color{0, 0, 0});
+    install_textbox_colors(std::span<Color>(pal));
 }
 
 std::uint8_t rainbow_index(int col, double time_ms) {

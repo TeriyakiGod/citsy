@@ -12,6 +12,7 @@
 #include <array>
 #include <fstream>
 #include <optional>
+#include <span>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -116,6 +117,23 @@ struct Engine::Impl {
     std::array<std::uint8_t, kMapSize   * kMapSize>   map1{};
     std::array<std::uint8_t, kMapSize   * kMapSize>   map2{};
     std::vector<Color>                                palette;
+
+    // Skip compose_room() when the visible room has not changed.
+    bool          composed_valid_ = false;
+    bool          composed_narrating_ = false;
+    int           composed_ax_ = -1;
+    int           composed_ay_ = -1;
+    int           composed_anim_ = -1;
+    std::uint32_t items_generation_ = 0;
+    std::uint32_t composed_items_gen_ = 0;
+    std::string   composed_room_;
+    std::string   composed_avatar_;
+
+    bool        textbox_was_active_ = false;
+    bool        textbox_pages_dirty_ = true;
+    int         last_revealed_ = -1;
+    bool        last_show_arrow_ = false;
+    std::size_t last_textbox_page_ = static_cast<std::size_t>(-1);
 
     explicit Impl(Game g) : game(std::move(g)) {
         font = game.font_data.empty() ? default_font()
@@ -288,6 +306,10 @@ struct Engine::Impl {
         for (const auto& [id, room] : game.rooms) {
             room_items[id] = room.items;
         }
+        items_generation_ = 1;
+        composed_valid_ = false;
+        textbox_was_active_ = false;
+        textbox_pages_dirty_ = true;
 
         inventory.clear();
         if (const Sprite* av = game.avatar()) {
@@ -378,49 +400,98 @@ struct Engine::Impl {
     }
 
     void compose() {
-        if (narrating) {
-            map1.fill(0);
-            map2.fill(0);
-            video.fill(0);
-        } else if (!transition.active()) {
-            ComposeState st;
-            st.game = &game;
-            st.room = current_room();
-            auto it = room_items.find(current_room_id);
-            st.items = (it != room_items.end()) ? &it->second : nullptr;
-            st.room_id = current_room_id;
-            st.avatar_x = avatar_x;
-            st.avatar_y = avatar_y;
-            st.anim_frame = anim_frame;
-            st.avatar_id = avatar_id;
-            compose_room(st, ComposeBuffers{map1, map2, video});
+        const bool need_room =
+            !composed_valid_ ||
+            narrating != composed_narrating_ ||
+            current_room_id != composed_room_ ||
+            avatar_x != composed_ax_ ||
+            avatar_y != composed_ay_ ||
+            anim_frame != composed_anim_ ||
+            avatar_id != composed_avatar_ ||
+            items_generation_ != composed_items_gen_;
+
+        if (need_room) {
+            if (narrating) {
+                map1.fill(0);
+                map2.fill(0);
+                video.fill(0);
+            } else if (!transition.active()) {
+                ComposeState st;
+                st.game = &game;
+                st.room = current_room();
+                auto it = room_items.find(current_room_id);
+                st.items = (it != room_items.end()) ? &it->second : nullptr;
+                st.room_id = current_room_id;
+                st.avatar_x = avatar_x;
+                st.avatar_y = avatar_y;
+                st.anim_frame = anim_frame;
+                st.avatar_id = avatar_id;
+                compose_room(st, ComposeBuffers{map1, map2, video});
+            }
+            composed_valid_ = true;
+            composed_narrating_ = narrating;
+            composed_room_ = current_room_id;
+            composed_ax_ = avatar_x;
+            composed_ay_ = avatar_y;
+            composed_anim_ = anim_frame;
+            composed_avatar_ = avatar_id;
+            composed_items_gen_ = items_generation_;
         }
         refresh_textbox();
     }
 
     void refresh_textbox() {
         if (!dlg.active()) {
-            textbox_pixels.clear();
-            dialog_plain.clear();
-            textbox_pages_.clear();
-            textbox_page_ = 0;
+            if (textbox_was_active_) {
+                textbox_pixels.clear();
+                dialog_plain.clear();
+                textbox_pages_.clear();
+                textbox_page_ = 0;
+                textbox_was_active_ = false;
+                textbox_pages_dirty_ = true;
+                last_revealed_ = -1;
+                last_show_arrow_ = false;
+                last_textbox_page_ = static_cast<std::size_t>(-1);
+            }
             return;
         }
+        textbox_was_active_ = true;
+
         TextboxLayout layout;
         layout.width = kTextboxWidth;
         layout.height = kTextboxHeight;
         layout.rtl = game.text_direction == TextDirection::RightToLeft;
         layout.time_ms = dialog_time_ms;
-        textbox_pages_ = paginate_spans(font, dlg.spans(), layout);
-        if (textbox_pages_.empty()) textbox_pages_.emplace_back();
+
+        if (textbox_pages_dirty_) {
+            textbox_pages_ = paginate_spans(font, dlg.spans(), layout);
+            if (textbox_pages_.empty()) textbox_pages_.emplace_back();
+            textbox_pages_dirty_ = false;
+            last_textbox_page_ = static_cast<std::size_t>(-1);
+            last_revealed_ = -1;
+        }
         if (textbox_page_ >= textbox_pages_.size()) {
             textbox_page_ = textbox_pages_.size() - 1;
         }
         const auto& page = textbox_pages_[textbox_page_];
-        dialog_plain = spans_to_plain(page);
-        layout.visible_char_count = revealed_chars(count_printable_chars(page));
-        layout.show_arrow = is_page_complete(page, layout.visible_char_count);
-        textbox_pixels = render_textbox(font, page, layout);
+        if (textbox_page_ != last_textbox_page_) {
+            dialog_plain = spans_to_plain(page);
+            last_textbox_page_ = textbox_page_;
+            last_revealed_ = -1;
+        }
+
+        const int total = count_printable_chars(page);
+        const int revealed = revealed_chars(total);
+        layout.visible_char_count = revealed;
+        layout.show_arrow = is_page_complete(page, revealed);
+        const bool timed = spans_have_time_effects(page);
+        if (revealed != last_revealed_ ||
+            layout.show_arrow != last_show_arrow_ ||
+            timed) {
+            textbox_pixels = render_textbox(font, page, layout);
+            last_revealed_ = revealed;
+            last_show_arrow_ = layout.show_arrow;
+        }
     }
 
     void reset_typewriter() {
@@ -541,6 +612,8 @@ struct Engine::Impl {
                       std::string script_id = {}) {
         dialog_time_ms = 0;
         textbox_page_ = 0;
+        textbox_pages_dirty_ = true;
+        last_revealed_ = -1;
         reset_typewriter();
         if (script_id.empty()) script_id = lock_key;
         dlg.start(std::move(source), make_world(), std::move(script_id), std::move(on_end));
@@ -575,6 +648,8 @@ struct Engine::Impl {
         if (!dlg.continue_page()) {
             finish_dialog(true);
         } else {
+            textbox_pages_dirty_ = true;
+            last_revealed_ = -1;
             refresh_textbox();
         }
     }
@@ -683,6 +758,7 @@ struct Engine::Impl {
 
         inventory[ri.item_id] += 1;
         items.erase(items.begin() + index);
+        ++items_generation_;
 
         auto src = dialog_source(dlg_id);
         if (src.empty()) return;
@@ -790,15 +866,23 @@ struct Engine::Impl {
             textbox.pixels = std::span<const std::uint8_t>(textbox_pixels);
         }
 
-        std::vector<Color> present_palette = palette;
+        std::array<Color, 256> present_palette{};
+        std::size_t plen = std::min(palette.size(), present_palette.size());
+        for (std::size_t i = 0; i < plen; ++i) {
+            present_palette[i] = palette[i];
+        }
         if (dlg.active()) {
-            install_textbox_colors(present_palette);
+            for (std::size_t i = plen; i < present_palette.size(); ++i) {
+                present_palette[i] = {};
+            }
+            install_textbox_colors(std::span<Color>(present_palette));
+            plen = present_palette.size();
         }
 
         host.present(
             gfx_mode,
             game.txt_mode == 1 ? TextMode::LoRez : TextMode::HiRez,
-            std::span<const Color>(present_palette),
+            std::span<const Color>(present_palette.data(), plen),
             std::span<const std::uint8_t>(video),
             std::span<const std::uint8_t>(map1),
             std::span<const std::uint8_t>(map2),

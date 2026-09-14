@@ -322,6 +322,24 @@ TEST_CASE("sim: video draws avatar pixels with sprite colour", "[engine][sim][re
     CHECK(snap->video[video_i(4 * 8 + 0, 4 * 8 + 0)] == 0);
 }
 
+TEST_CASE("sim: idle frames present identical video", "[engine][sim][render]") {
+    auto src = open_room(4, 4);
+    citsy::Engine engine(src);
+    citsy::MockHost host;
+    host.dt_ms = 16.0;
+    engine.start(host);
+    engine.update(host);
+    const auto* first = host.last_snapshot();
+    REQUIRE(first != nullptr);
+    const auto video0 = first->video;
+    const auto map1_0 = first->map1;
+    engine.update(host);
+    const auto* second = host.last_snapshot();
+    REQUIRE(second != nullptr);
+    CHECK(second->video == video0);
+    CHECK(second->map1 == map1_0);
+}
+
 TEST_CASE("sim: wall tile pixels use tile colour", "[engine][sim][render]") {
     auto src = bitsy_game({
         std::string(kPal),

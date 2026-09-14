@@ -6,6 +6,7 @@
 
 #include <array>
 #include <cstdint>
+#include <span>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -98,7 +99,22 @@ struct TextboxLayout {
     const TextboxLayout& layout);
 
 /// Install black, white, and rainbow hues at the reserved textbox indices.
+/// @p palette must contain at least 256 entries; extra colours are left intact.
+void install_textbox_colors(std::span<Color> palette);
+
+/// Grows @p palette to 256 entries if needed, then installs reserved hues.
 void install_textbox_colors(std::vector<Color>& palette);
+
+/// True when any span uses wavy / shaky / rainbow effects that must be
+/// re-rasterised every frame.
+[[nodiscard]] inline bool spans_have_time_effects(const std::vector<TextSpan>& spans) {
+    for (const auto& s : spans) {
+        if (s.effects & (GlyphFx::Wavy | GlyphFx::Shaky | GlyphFx::Rainbow)) {
+            return true;
+        }
+    }
+    return false;
+}
 
 /// Rainbow palette index for glyph column @p col at time @p time_ms.
 /// Bitsy: `(time / 100) - char.col * 0.5`, quantized onto sine RGB slots.
